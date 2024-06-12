@@ -1,6 +1,10 @@
+# SSHFS-RUST
+
+FUSE とRust を習熟することを目的に、SSHFS をRust で実装することを試みる。
+全てを一度にRust で置き換えることは難しいため、一部の関数から順次置き換えていく。
+これ以下は、オリジナルのSSHFS のREADME である。
 
 # SSHFS
-
 
 ## About
 
