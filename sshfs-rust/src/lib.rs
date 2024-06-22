@@ -15,8 +15,7 @@ mod tests {
 
 #[no_mangle]
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = unsafe { CStr::from_ptr(path) };
-	let path = path.to_str().unwrap();
-	println!("unlink: {}", path);
-	0 as c_int
+	let path = unsafe { core::ffi::CStr::from_ptr(path) };
+	let path = path.to_bytes();
+	0 as core::ffi::c_int
 }
