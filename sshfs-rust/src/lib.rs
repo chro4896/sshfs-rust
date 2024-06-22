@@ -22,7 +22,7 @@ struct Buffer {
 
 extern "C" {
 	fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut core::ffi::c_void;
-	fn sftp_request(conn: *mut core::ffi::c_void, type: u8, buf: *const Buffer, expect_type: u8, outbuf: *mut Buffer) -> core::ffi::c_int;
+	fn sftp_request(conn: *mut core::ffi::c_void, ssh_op_type: u8, buf: *const Buffer, expect_type: u8, outbuf: *mut Buffer) -> core::ffi::c_int;
 }
 
 #[no_mangle]
