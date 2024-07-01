@@ -19,7 +19,7 @@ struct Buffer {
 
 impl Buffer {
 	fn translate_into_sys (&self) -> Buffer_sys {
-		{
+		Buffer_sys {
 			p: unsafe { self.p.as_ptr() },
 			len: self.len,
 			size: self.p.len
