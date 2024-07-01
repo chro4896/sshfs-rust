@@ -22,7 +22,7 @@ impl Buffer {
 		Buffer_sys {
 			p: unsafe { self.p.as_ptr() },
 			len: self.len,
-			size: self.p.len
+			size: self.p.len()
 		}
 	}
 }
