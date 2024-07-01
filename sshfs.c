@@ -4497,3 +4497,7 @@ int main(int argc, char *argv[])
 
 	return res;
 }
+
+char *sshfs_base_path () {
+	return sshfs.base_path;
+}
