@@ -1,16 +1,8 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+const SSH_FXP_REMOVE: u8 = 13;
+const SSH_FXP_STATUS: u8 = 101;
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+extern "C" {
+    fn sshfs_base_path() -> *const core::ffi::c_char;
 }
 
 #[repr(C)]
