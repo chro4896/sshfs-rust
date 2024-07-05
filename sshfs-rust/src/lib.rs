@@ -45,7 +45,7 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 		err = req.error;
 	} else {
 		loop {
-			if libc::sem_wait(req.ready) != 0 {
+			if unsafe { libc::sem_wait(req.ready) } != 0 {
 				break;
 			}
 		}
