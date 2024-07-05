@@ -25,7 +25,7 @@ struct Request_ext_rust {
 	start: libc::timeval,
 	data: *mut core::ffi::c_void,
 	end_func: *mut core::ffi::c_void,
-	len: core::ffi::c_size_t,
+	len: usize,
 	list: List_head,
 	conn: *mut core::ffi::c_void,
 }
@@ -36,7 +36,7 @@ struct List_head {
 	next: *mut List_head,
 }
 
-pub extern "C" fn sftp_request_wait_rust(req: *mut Reuest_ext_rust, op_type: u8, expect_type: u8, outbuf: *mut core::ffi::c_void, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
+pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8, expect_type: u8, outbuf: *mut core::ffi::c_void, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
 	let mut err = 0;
 	
 	if req.error != 0 {
@@ -53,4 +53,5 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Reuest_ext_rust, op_type: u8,
 			
 		}
 	}
+	err
 }
