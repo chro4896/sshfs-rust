@@ -6,7 +6,7 @@ const SSH_FXP_STATUS: u8 = 101;
 
 const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
-const SSH_FX_FAILURE: u32 4;
+const SSH_FX_FAILURE: u32 = 4;
 
 const MY_EOF: u8 = 1;
 
