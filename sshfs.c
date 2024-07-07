@@ -800,7 +800,7 @@ static inline int buf_get_uint8(struct buffer *buf, uint8_t *val)
 	return buf_get_mem(buf, val, 1);
 }
 
-static inline int buf_get_uint32(struct buffer *buf, uint32_t *val)
+int buf_get_uint32(struct buffer *buf, uint32_t *val)
 {
 	uint32_t nval;
 	if (buf_get_mem(buf, &nval, 4) == -1)
