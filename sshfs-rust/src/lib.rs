@@ -4,9 +4,10 @@ const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_RMDIR: u8 = 15;
 const SSH_FXP_STATUS: u8 = 101;
 
-const SSH_FX_OK: u8 = 0;
-const SSH_FX_EOF: u8 = 1;
-const SSH_FX_FAILURE: u8 4;
+const SSH_FX_OK: u32 = 0;
+const SSH_FX_EOF: u32 = 1;
+const SSH_FX_FAILURE: u32 4;
+
 const MY_EOF: u8 = 1;
 
 extern "C" {
