@@ -1458,7 +1458,7 @@ static int sftp_read(struct conn *conn, uint8_t *type, struct buffer *buf)
 	return res;
 }
 
-static void request_free(struct request *req)
+void request_free(struct request *req)
 {
 	if (req->end_func)
 		req->end_func(req);
@@ -1750,7 +1750,7 @@ out:
 	return res;
 }
 
-static int sftp_error_to_errno(uint32_t error)
+int sftp_error_to_errno(uint32_t error)
 {
 	switch (error) {
 	case SSH_FX_OK:                return 0;

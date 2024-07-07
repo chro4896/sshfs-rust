@@ -14,6 +14,8 @@ extern "C" {
     fn sshfs_base_path() -> *const core::ffi::c_char;
     fn sshfs_lock_ptr() -> *mut core::ffi::c_void;
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
+    fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
+    fn request_free(req: *mut core::ffi::c_void);
 }
 
 #[repr(C)]
