@@ -12,4 +12,5 @@ const MY_EOF: u8 = 1;
 
 extern "C" {
     fn sshfs_base_path() -> *const core::ffi::c_char;
+    fn sshfs_lock_ptr() -> *mut core::ffi::c_void;
 }
