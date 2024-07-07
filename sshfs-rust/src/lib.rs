@@ -60,5 +60,10 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 			
 		}
 	}
+	unsafe {
+		libc::pthread_mutex_lock(sshfs_lock_ptr() as *mut libc::pthread_mutex_t);
+		request_free(req_orig);
+		libc::pthread_mutex_unlock(sshfs_lock_ptr() as *mut libc::pthread_mutex_t);
+	}
 	err
 }
