@@ -8,7 +8,7 @@ const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
 
-const MY_EOF: u8 = 1;
+const MY_EOF: core::ffi::c_int = 1;
 
 extern "C" {
     fn sshfs_base_path() -> *const core::ffi::c_char;
