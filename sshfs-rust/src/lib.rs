@@ -13,7 +13,7 @@ const MY_EOF: u8 = 1;
 extern "C" {
     fn sshfs_base_path() -> *const core::ffi::c_char;
     fn sshfs_lock_ptr() -> *mut core::ffi::c_void;
-    fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
+    unsafe fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
 }
@@ -61,7 +61,36 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 			if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
 				eprintln!("protocol error");
 			} else if req.reply_type == SSH_FXP_STATUS {
-				
+				let mut serr: u32 = 0;
+				if unsafe { buf_get_uint32(req.reply, &mut serr as *mut u32) } != -1 {
+					match serr {
+						SSH_FX_OK => {
+							if expected_type == SSH_FXP_STATUS {
+								err = 0;
+							} else {
+								err = (-1)*libc::EIO;
+							}
+						},
+						SSH_FX_EOF => {
+							if op_type == SH_FXP_READ || op_type == SSH_FXP_READDIR {
+								err = MY_EOF;
+							} else {
+								err = (-1)*libc::EIO;
+							}
+						},
+						SSH_FX_FAILURE => {
+							if op_type == SSH_FXP_RMDIR {
+								err = (-1)*libc::ENOTEMPTY;
+							} else {
+								err = (-1)*libc::EPERM;
+							}
+						},
+						_ => {
+							err = (-1)*sftp_error_to_errno(serr);
+						}
+					}
+				}
+			} else {
 			}
 		}
 	}
