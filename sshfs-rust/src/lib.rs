@@ -86,7 +86,7 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 							}
 						},
 						_ => {
-							err = (-1)*sftp_error_to_errno(serr);
+							err = unsafe { (-1)*sftp_error_to_errno(serr) };
 						}
 					}
 				}
