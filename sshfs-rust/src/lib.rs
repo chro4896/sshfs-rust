@@ -57,7 +57,12 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 		if req.error != 0 {
 			err = req.error;
 		} else {
-			
+			err = (-1)*libc::EIO;
+			if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
+				eprintln!("protocol error");
+			} else if req.reply_type == SSH_FXP_STATUS {
+				
+			}
 		}
 	}
 	unsafe {
