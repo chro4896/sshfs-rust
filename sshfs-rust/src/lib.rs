@@ -19,7 +19,7 @@ struct Buffer {
 
 impl Buffer {
 	fn new (size: usize) -> Self {
-		let p = Vec::with_capacity(size);
+		let mut p = Vec::with_capacity(size);
 		for _ in 0..size {
 			p.push(0);
 		}
