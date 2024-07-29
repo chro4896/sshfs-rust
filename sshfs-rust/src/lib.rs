@@ -32,33 +32,33 @@ extern "C" {
 	fn sftp_request(conn: *mut core::ffi::c_void, ssh_op_type: u8, buf: *const Buffer_sys, expect_type: u8, outbuf: *mut Buffer_sys) -> core::ffi::c_int;
 }
 
-fn get_real_path (path: *const core::ffi::c_char) -> Vec<core::ffi::c_char> {
+fn get_real_path (path: *const core::ffi::c_char) -> Vec<u8> {
 	let base_path = unsafe { sshfs_base_path() };
 	let mut real_path = Vec::new(); 
 	if unsafe { *base_path } != 0 {
 		let mut base_path_len = 0;
 		while unsafe { *(base_path.offset(base_path_len)) } != 0 {
-			real_path.push(unsafe { *(base_path.offset(base_path_len)) });
+			real_path.push(unsafe { *(base_path.offset(base_path_len)) as u8 });
 			base_path_len += 1;
 		}
 		if unsafe { *(path.offset(1)) } != 0 {
     		if unsafe { *(base_path.offset(base_path_len-1)) } != b'/' as core::ffi::c_char {
-	    		real_path.push(b'/' as core::ffi::c_char);
+	    		real_path.push(b'/');
 		    }
 		    let mut idx = 1;
 		    while unsafe { *(path.offset(idx)) } != 0 {
-				real_path.push(unsafe { *(path.offset(idx)) });
+				real_path.push(unsafe { *(path.offset(idx)) as u8 });
 			    idx += 1;
 			}
 		}
 	} else if unsafe { *(path.offset(1)) } != 0 {
 		let mut idx = 1;
 		while unsafe { *(path.offset(idx)) } != 0 {
-		    real_path.push(unsafe { *(path.offset(idx)) });
+		    real_path.push(unsafe { *(path.offset(idx)) as u8 });
 		    idx += 1;
 		}
 	} else {
-		real_path.push(b'.' as core::ffi::c_char);
+		real_path.push(b'.');
 	}
 	real_path
 }
