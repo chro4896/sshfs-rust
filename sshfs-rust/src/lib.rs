@@ -32,6 +32,18 @@ extern "C" {
 	fn sftp_request(conn: *mut core::ffi::c_void, ssh_op_type: u8, buf: *const Buffer_sys, expect_type: u8, outbuf: *mut Buffer_sys) -> core::ffi::c_int;
 }
 
+fn get_real_path (path: *const core::ffi::c_char) -> Vec<core::ffi::c_char> {
+	let base_path = unsafe { sshfs_base_path() };
+	let real_path = Vec::new(); 
+	if (unsafe { *base_path } != 0) {
+		let mut idx = 0;
+		while unsafe { *(p.offset(idx)) } != 0 {
+			idx++;
+		}
+	}
+	real_path
+}
+
 #[no_mangle]
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
 	let path = unsafe { core::ffi::CStr::from_ptr(path) };
