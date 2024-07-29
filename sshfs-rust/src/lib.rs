@@ -28,6 +28,14 @@ impl Buffer {
 			len: 0,
 		}
 	}
+	fn resize (&mut self, len: usize) {
+		let new_len = (self.len+len+63)-(self.len+len+63)%32;
+		self.p.reserve(new_len - self.p.len());
+		for _ in self.len..new_len {
+			p.push(0);
+		}
+	}
+	// 返り値のライフタイムがBuffer のライフタイムより短いとp の参照先が解放されてしまうためunsafe
 	unsafe fn translate_into_sys (&self) -> Buffer_sys {
 		Buffer_sys {
 			p: self.p.as_ptr(),
