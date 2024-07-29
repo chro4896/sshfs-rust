@@ -18,9 +18,19 @@ struct Buffer {
 }
 
 impl Buffer {
-	fn translate_into_sys (&self) -> Buffer_sys {
+	fn new (size: usize) -> Self {
+		let p = Vec::with_capacity(size);
+		for _ in 0..size {
+			p.push(0);
+		}
+		Buffer {
+			p,
+			0,
+		}
+	}
+	unsafe fn translate_into_sys (&self) -> Buffer_sys {
 		Buffer_sys {
-			p: unsafe { self.p.as_ptr() },
+			p: self.p.as_ptr(),
 			len: self.len,
 			size: self.p.len()
 		}
