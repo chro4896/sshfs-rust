@@ -34,11 +34,15 @@ extern "C" {
 
 fn get_real_path (path: *const core::ffi::c_char) -> Vec<core::ffi::c_char> {
 	let base_path = unsafe { sshfs_base_path() };
-	let real_path = Vec::new(); 
+	let mut real_path = Vec::new(); 
 	if (unsafe { *base_path } != 0) {
-		let mut idx = 0;
-		while unsafe { *(p.offset(idx)) } != 0 {
-			idx++;
+		let mut base_path_len = 0;
+		while unsafe { *(base_path.offset(base_path_len)) } != 0 {
+			real_path.push(unsafe { *(base_path.offset(base_path_len)) });
+			base_path_len += 1;
+		}
+		if unsafe { *(base_path.offset(base_path_len-1)) } != b'/' as core::ffi::c_char {
+			real_path.push(b'/' as core::ffi::c_char);
 		}
 	}
 	real_path
