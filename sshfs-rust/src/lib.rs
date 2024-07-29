@@ -25,7 +25,7 @@ impl Buffer {
 		}
 		Buffer {
 			p,
-			0,
+			len: 0,
 		}
 	}
 	unsafe fn translate_into_sys (&self) -> Buffer_sys {
