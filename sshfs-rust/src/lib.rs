@@ -35,7 +35,7 @@ impl Buffer {
 		}
 		if new_len > self.p.len() {
 			for _ in self.p.len()..new_len {
-				p.push(0);
+				self.p.push(0);
 			}
 		}
 	}
@@ -52,7 +52,7 @@ impl Buffer {
 			self.resize(data.len());
 		}
 		for b in data {
-			self.p[self.len] = b;
+			self.p[self.len] = *b;
 			self.len += 1;
 		}
 	}
