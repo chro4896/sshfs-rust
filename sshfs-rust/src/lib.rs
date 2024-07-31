@@ -30,9 +30,13 @@ impl Buffer {
 	}
 	fn resize (&mut self, len: usize) {
 		let new_len = (self.len+len+63)-(self.len+len+63)%32;
-		self.p.reserve(new_len - self.p.len());
-		for _ in self.len..new_len {
-			p.push(0);
+		if new_len > self.p.capacity() {
+			self.p.reserve(new_len - self.p.capacity());
+		}
+		if new_len > self.p.len() {
+			for _ in self.p.len()..new_len {
+				p.push(0);
+			}
 		}
 	}
 	// 返り値のライフタイムがBuffer のライフタイムより短いとp の参照先が解放されてしまうためunsafe
@@ -41,6 +45,15 @@ impl Buffer {
 			p: self.p.as_ptr(),
 			len: self.len,
 			size: self.p.len()
+		}
+	}
+	fn add (&mut self, data: &[u8]) {
+		if self.len+data.len() > self.p.len() {
+			self.resize(data.len());
+		}
+		for b in data {
+			self.p[self.len] = b;
+			self.len += 1;
 		}
 	}
 }
