@@ -56,11 +56,11 @@ impl Buffer {
 			self.len += 1;
 		}
 	}
-	fn add (&mut self, data: u32) {
+	fn add_u32 (&mut self, data: u32) {
 		self.add([ ((data>>24)&255) as u8, ((data>>16)&255) as u8, ((data>>8)&255) as u8, (data&255) as u8 ]);
 	}
 	fn add_str (&mut self, data: &[u8]) {
-		self.add(data.len() as u32);
+		self.add_u32(data.len() as u32);
 		self.add(data);
 	}
 }
@@ -105,7 +105,7 @@ fn get_real_path (path: *const core::ffi::c_char) -> Vec<u8> {
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
 	let path = get_real_path(path);
 	let mut buf = Buffer::new(0);
-	buf.add_str(path);
+	buf.add_str(&path);
 	let buf = buf.translate_into_sys();
-	sftp_request(get_conn(std::ptr::null(), std::ptr::null()), SSH_FXP_REMOVE, &buf, SSH_FXP_STATUS, std::ptr::null())
+	sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_REMOVE, &buf, SSH_FXP_STATUS, std::ptr::null_mut())
 }
