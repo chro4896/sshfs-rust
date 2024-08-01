@@ -104,5 +104,5 @@ struct sshfs {
 }
 
 extern "C" {
-    fn retrieve_sshfs() -> Option<&sshfs>;
+    fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
