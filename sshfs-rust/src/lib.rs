@@ -82,10 +82,10 @@ struct sshfs {
 	remote_uid_detected: core::ffi::c_int,
 	blksize: core::ffi::c_uint,
 	progname: *mut core::ffi::c_char,
-	modifver: core::ffi::c_long
+	modifver: core::ffi::c_long,
 	outstanding_len: core::ffi::c_uint,
 	max_outstanding_len: core::ffi::c_uint,
-	pthread_cond_t outstanding_cond;
+	outstanding_cond: libc::pthread_cond_t,
 	password_stdin: core::ffi::c_int,
 	password: *mut core::ffi::c_char,
 	ext_posix_rename: core::ffi::c_int,
