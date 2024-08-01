@@ -2493,17 +2493,7 @@ static int sshfs_symlink(const char *from, const char *to)
 	return err;
 }
 
-static int sshfs_unlink(const char *path)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_REMOVE, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_unlink(const char *path);
 
 static int sshfs_rmdir(const char *path)
 {
