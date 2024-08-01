@@ -4498,10 +4498,6 @@ int main(int argc, char *argv[])
 	return res;
 }
 
-char *sshfs_base_path () {
-	return sshfs.base_path;
-}
-
-pthread_mutex_t *sshfs_lock_ptr () {
-	return &sshfs.lock;
+struct sshfs *retrieve_sshfs () {
+	return &sshfs;
 }
