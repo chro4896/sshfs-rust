@@ -4497,3 +4497,7 @@ int main(int argc, char *argv[])
 
 	return res;
 }
+
+struct sshfs *retrieve_sshfs () {
+	return &sshfs;
+}
