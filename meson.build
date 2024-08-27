@@ -28,6 +28,7 @@ add_languages('rust')
 sshfs_rust = static_library(
     'sshfs_rust',
     sources : 'sshfs-rust/src/lib.rs',
+    rust_abi: 'c'
 )
 
 rst2man = find_program('rst2man', 'rst2man.py', required: false)
