@@ -24,6 +24,11 @@ if not cc.compiles(code, args: [ '-O0', '-Werror=unused-result' ])
      add_global_arguments('-Wno-unused-result', language: 'c')
 endif
 
+add_languages('rust')
+sshfs_rust = static_library(
+    'sshfs_rust',
+    sources : './sshfs_rust/src/lib.rs',
+)
 
 rst2man = find_program('rst2man', 'rst2man.py', required: false)
 
@@ -52,6 +57,7 @@ executable('sshfs', sshfs_sources,
            include_directories: include_dirs,
            dependencies: sshfs_deps,
            c_args: ['-DFUSE_USE_VERSION=31'],
+           link_with: sshfs_rust,
            install: true,
            install_dir: get_option('bindir'))
 
