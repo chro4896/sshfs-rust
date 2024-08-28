@@ -1070,7 +1070,7 @@ static int pty_expect_loop(struct conn *conn)
 	return 0;
 }
 
-static struct conn* get_conn(const struct sshfs_file *sf,
+struct conn* get_conn(const struct sshfs_file *sf,
 			     const char *path)
 {
 	struct conntab_entry *ce;
@@ -2115,7 +2115,7 @@ static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
 	return sftp_request_wait(req, type, expect_type, outbuf);
 }
 
-static int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
+int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
 			uint8_t expect_type, struct buffer *outbuf)
 {
 	struct iovec iov;
