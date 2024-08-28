@@ -47,12 +47,11 @@ sshfs_deps = [ dependency('fuse3', version: '>= 3.1.0'),
                dependency('glib-2.0'),
                dependency('gthread-2.0') ]
 
-sshfs_rust = static_library('sshfs-rust', 'sshfs-rust/target/release/libsshfs_rust.a')
 executable('sshfs', sshfs_sources,
            include_directories: include_dirs,
            dependencies: sshfs_deps,
            c_args: ['-DFUSE_USE_VERSION=31'],
-           link_depends: sshfs_rust,
+           link_depends: 'sshfs-rust/target/release/libsshfs_rust.a',
            install: true,
            install_dir: get_option('bindir'))
 
