@@ -12,10 +12,10 @@ const MY_EOF: core::ffi::c_int = 1;
 
 extern "C" {
     fn sshfs_base_path() -> *const core::ffi::c_char;
-    fn sshfs_lock_ptr() -> *mut core::ffi::c_void;
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
+    fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
 #[repr(C)]
@@ -95,9 +95,9 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 		}
 	}
 	unsafe {
-		libc::pthread_mutex_lock(sshfs_lock_ptr() as *mut libc::pthread_mutex_t);
+		libc::pthread_mutex_lock(retrieve_sshfs().lock_ptr);
 		request_free(req_orig);
-		libc::pthread_mutex_unlock(sshfs_lock_ptr() as *mut libc::pthread_mutex_t);
+		libc::pthread_mutex_unlock(retrieve_sshfs().lock_ptr);
 	}
 	err
 }
@@ -196,6 +196,3 @@ struct sshfs {
 	num_connect: core::ffi::c_uint,
 }
 
-extern "C" {
-    fn retrieve_sshfs() -> Option<&'static sshfs>;
-}
