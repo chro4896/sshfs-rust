@@ -103,19 +103,6 @@ struct sshfs {
 	num_connect: core::ffi::c_uint,
 }
 
-extern "C" {
-    fn retrieve_sshfs() -> Option<&'static sshfs>;
-}
-
-#[no_mangle]
-pub extern "C" fn sshfs_link(from_path: *const core::ffi::c_char, to_path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) };
-	let from_path = from_path.to_bytes();
-	let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) };
-	let to_path = to_path.to_bytes();
-	0 as core::ffi::c_int
-}
-
 #[repr(C)]
 struct Buffer_sys {
 	p: *const u8,
@@ -179,6 +166,7 @@ impl Buffer {
 extern "C" {
 	fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut core::ffi::c_void;
 	fn sftp_request(conn: *mut core::ffi::c_void, ssh_op_type: u8, buf: *const Buffer_sys, expect_type: u8, outbuf: *mut Buffer_sys) -> core::ffi::c_int;
+    fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
 fn get_real_path (path: *const core::ffi::c_char) -> Vec<u8> {
@@ -219,4 +207,13 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
 	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_REMOVE, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_link(from_path: *const core::ffi::c_char, to_path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) };
+	let from_path = from_path.to_bytes();
+	let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) };
+	let to_path = to_path.to_bytes();
+	0 as core::ffi::c_int
 }
