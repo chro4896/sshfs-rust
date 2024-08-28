@@ -2544,13 +2544,7 @@ static int sshfs_ext_posix_rename(const char *from, const char *to)
 	return err;
 }
 
-static void random_string(char *str, int length)
-{
-	int i;
-	for (i = 0; i < length; i++)
-		*str++ = (char)('0' + rand_r(&sshfs.randseed) % 10);
-	*str = '\0';
-}
+void random_string(char *str, int length);
 
 static int sshfs_rename(const char *from, const char *to, unsigned int flags)
 {
