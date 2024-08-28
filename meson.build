@@ -51,7 +51,7 @@ executable('sshfs', sshfs_sources,
            include_directories: include_dirs,
            dependencies: sshfs_deps,
            c_args: ['-DFUSE_USE_VERSION=31'],
-           link_args: '-L ../sshfs-rust/target/release/ -lsshfs_rust',
+           link_args: [ '-L', '../sshfs-rust/target/release/', '-lsshfs_rust' ],
            install: true,
            install_dir: get_option('bindir'))
 
