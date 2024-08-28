@@ -5,7 +5,6 @@ project('sshfs', 'c', version: '3.7.3',
 add_global_arguments('-D_REENTRANT', '-DHAVE_CONFIG_H',
                      '-Wall', '-Wextra', '-Wno-sign-compare',
                      '-Wmissing-declarations', '-Wwrite-strings',
-                     '-L ../sshfs-rust/target/release/', '-lsshfs_rust',
                      language: 'c')
 
 # Some (stupid) GCC versions warn about unused return values even when they are
@@ -52,7 +51,6 @@ executable('sshfs', sshfs_sources,
            include_directories: include_dirs,
            dependencies: sshfs_deps,
            c_args: ['-DFUSE_USE_VERSION=31'],
-           link_depends: 'sshfs-rust/target/release/libsshfs_rust.a',
            install: true,
            install_dir: get_option('bindir'))
 
