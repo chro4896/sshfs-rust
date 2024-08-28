@@ -52,7 +52,7 @@ executable('sshfs', sshfs_sources,
            include_directories: include_dirs,
            dependencies: sshfs_deps,
            c_args: ['-DFUSE_USE_VERSION=31'],
-           link_with: sshfs_rust,
+           link_depends: sshfs_rust,
            install: true,
            install_dir: get_option('bindir'))
 
