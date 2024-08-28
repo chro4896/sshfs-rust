@@ -3,10 +3,13 @@ const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_RMDIR: u8 = 15;
 const SSH_FXP_STATUS: u8 = 101;
+const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
+
+const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
 
 const MY_EOF: core::ffi::c_int = 1;
 
@@ -214,12 +217,15 @@ pub extern "C" fn sshfs_link(from_path: *const core::ffi::c_char, to_path: *cons
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
 	
 	if sshfs_ref.ext_hardlink != 0 && sshfs_ref.disable_hardlink == 0 {
-		let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) };
-		let from_path = from_path.to_bytes();
-		let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) };
-		let to_path = to_path.to_bytes();
-		0 as core::ffi::c_int
+		let from_path = get_real_path(from_path);
+		let to_path = get_real_path(to_path);
+		let mut buf = Buffer::new(0);
+		buf.add_str(SFTP_EXT_HARDLINK.as_bytes());
+		buf.add_str(&from_path);
+		buf.add_str(&to_path);
+		let buf = unsafe { buf.translate_into_sys() };
+		unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_EXTENDED, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
 	} else {
-		libc::ENOSYS as core::ffi::c_int
+		(-1)*libc::ENOSYS as core::ffi::c_int
 	}
 }
