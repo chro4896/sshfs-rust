@@ -5,6 +5,7 @@ project('sshfs', 'c', version: '3.7.3',
 add_global_arguments('-D_REENTRANT', '-DHAVE_CONFIG_H',
                      '-Wall', '-Wextra', '-Wno-sign-compare',
                      '-Wmissing-declarations', '-Wwrite-strings',
+                     '-L ../sshfs-rust/target/release/', '-lsshfs_rust',
                      language: 'c')
 
 # Some (stupid) GCC versions warn about unused return values even when they are
