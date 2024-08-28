@@ -67,6 +67,7 @@ struct sshfs {
 	reqtab: *mut core::ffi::c_void,
 	conntab: *mut core::ffi::c_void,
 	lock: libc::pthread_mutex_t,
+	lock_ptr: *mut libc::pthread_mutex_t,
 	randseed: core::ffi::c_uint,
 	max_conns: core::ffi::c_int,
     vsock: *mut core::ffi::c_char,
