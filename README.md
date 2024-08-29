@@ -1,7 +1,11 @@
 # SSHFS-RUST
 
-FUSE とRust を習熟することを目的に、SSHFS をRust で実装することを試みる。
-全てを一度にRust で置き換えることは難しいため、一部の関数から順次置き換えていく。
+FUSE とRust を習熟することを目的に、SSHFS をRust で実装することを試みる。  
+全てを一度にRust で置き換えることは難しいため、一部の関数から順次置き換えていく。  
+現時点で下記の関数をRust に置き換えている。
+
+- random_string
+
 これ以下は、オリジナルのSSHFS のREADME である。
 
 # SSHFS
