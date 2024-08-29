@@ -133,18 +133,6 @@ struct Buffer {
     len: usize,
 }
 
-#[repr(C)]
-struct Conn {
-	lock_write: libc::pthread_mutex_t,
-	processing_thread_started: core::ffi::c_int,
-	rfd: core::ffi::c_int,
-	wfd: core::ffi::c_int,
-	connver: core::ffi::c_int,
-	req_count: core::ffi::c_int,
-	dir_count: core::ffi::c_int,
-	file_count: core::ffi::c_int,
-}
-
 impl Buffer {
     fn new(size: usize) -> Self {
         let p = vec![0;size];
