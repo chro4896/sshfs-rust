@@ -242,6 +242,14 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
+pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_file_info>) -> core::ffi::c_int {
+	let path = get_real_path(path);
+	let mut buf = Buffer::new(0);
+	buf.add_str(&path);
+	let buf = unsafe { buf.translate_into_sys() };
+}
+
+#[no_mangle]
 pub extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
 	for idx in 0..length {
 		unsafe {
