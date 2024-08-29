@@ -123,7 +123,7 @@ struct Buffer {
 
 impl Buffer {
     fn new(size: usize) -> Self {
-        let mut p = vec![0;size];
+        let p = vec![0;size];
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
