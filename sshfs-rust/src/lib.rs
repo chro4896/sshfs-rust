@@ -168,6 +168,24 @@ impl Buffer {
 	}
 }
 
+
+#[repr(C)]
+struct Conn {
+	lock_write: libc::lock_write,
+	processing_thread_started: core::ffi::c_int,
+	rfd: core::ffi::c_int,
+	wfd: core::ffi::c_int,
+	connver: core::ffi::c_int,
+	req_count: core::ffi::c_int,
+	dir_count: core::ffi::c_int,
+	file_count: core::ffi::c_int,
+}
+
+struct DirHandle {
+	buf: Buffer,
+	conn: Option<Box<Conn>>,
+}
+
 extern "C" {
 	fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut core::ffi::c_void;
 	fn sftp_request(conn: *mut core::ffi::c_void, ssh_op_type: u8, buf: *const Buffer_sys, expect_type: u8, outbuf: *mut Buffer_sys) -> core::ffi::c_int;

@@ -2355,34 +2355,7 @@ static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 	return err;
 }
 
-static int sshfs_opendir(const char *path, struct fuse_file_info *fi)
-{
-	int err;
-	struct conn *conn;
-	struct buffer buf;
-	struct dir_handle *handle;
-
-	handle = g_new0(struct dir_handle, 1);
-	if(handle == NULL)
-		return -ENOMEM;
-
-	// Commutes with pending write(), so we can use any connection
-	conn = get_conn(NULL, NULL);
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	err = sftp_request(conn, SSH_FXP_OPENDIR, &buf, SSH_FXP_HANDLE, &handle->buf);
-	if (!err) {
-		buf_finish(&handle->buf);
-		pthread_mutex_lock(&sshfs.lock);
-		handle->conn = conn;
-		handle->conn->dir_count++;
-		pthread_mutex_unlock(&sshfs.lock);
-		fi->fh = (unsigned long) handle;
-	} else
-		g_free(handle);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi,
