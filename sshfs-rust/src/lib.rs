@@ -123,10 +123,7 @@ struct Buffer {
 
 impl Buffer {
     fn new(size: usize) -> Self {
-        let mut p = Vec::with_capacity(size);
-        for _ in 0..size {
-            p.push(0);
-        }
+        let mut p = vec![0;size]
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
@@ -237,14 +234,10 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 #[no_mangle]
 pub extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
-        unsafe {
-            *s_ptr.offset(idx.try_into().unwrap()) =
-                (b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10);
-        }
+        *s_ptr.offset(idx.try_into().unwrap()) =
+            (b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10);
     }
-    unsafe {
-        *s_ptr.offset(length.try_into().unwrap()) = 0;
-    }
+    *s_ptr.offset(length.try_into().unwrap()) = 0;
 }
 
 #[no_mangle]
@@ -272,6 +265,6 @@ pub extern "C" fn sshfs_link(
             )
         }
     } else {
-        (-1) * libc::ENOSYS as core::ffi::c_int
+        -(libc::ENOSYS as core::ffi::c_int)
     }
 }
