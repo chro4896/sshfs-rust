@@ -4,6 +4,7 @@ const SSH_FXP_READ: u8 = 5;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_RMDIR: u8 = 15;
+const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
 const SSH_FXP_EXTENDED: u8 = 200;
 
