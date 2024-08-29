@@ -1070,7 +1070,7 @@ static int pty_expect_loop(struct conn *conn)
 	return 0;
 }
 
-static struct conn* get_conn(const struct sshfs_file *sf,
+struct conn* get_conn(const struct sshfs_file *sf,
 			     const char *path)
 {
 	struct conntab_entry *ce;
@@ -2115,7 +2115,7 @@ static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
 	return sftp_request_wait(req, type, expect_type, outbuf);
 }
 
-static int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
+int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
 			uint8_t expect_type, struct buffer *outbuf)
 {
 	struct iovec iov;
@@ -2493,17 +2493,7 @@ static int sshfs_symlink(const char *from, const char *to)
 	return err;
 }
 
-static int sshfs_unlink(const char *path)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_REMOVE, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_unlink(const char *path);
 
 static int sshfs_rmdir(const char *path)
 {
@@ -2591,25 +2581,7 @@ static int sshfs_rename(const char *from, const char *to, unsigned int flags)
 	return err;
 }
 
-static int sshfs_link(const char *from, const char *to)
-{
-	int err = -ENOSYS;
-
-	if (sshfs.ext_hardlink && !sshfs.disable_hardlink) {
-		struct buffer buf;
-
-		buf_init(&buf, 0);
-		buf_add_string(&buf, SFTP_EXT_HARDLINK);
-		buf_add_path(&buf, from);
-		buf_add_path(&buf, to);
-		// Commutes with pending write(), so we can use any connection
-		err = sftp_request(get_conn(NULL, NULL), SSH_FXP_EXTENDED, &buf, SSH_FXP_STATUS,
-				   NULL);
-		buf_free(&buf);
-	}
-
-	return err;
-}
+int sshfs_link(const char *from, const char *to);
 
 static inline int sshfs_file_is_conn(struct sshfs_file *sf)
 {
@@ -4490,4 +4462,8 @@ int main(int argc, char *argv[])
 	free(sshfs.directport);
 
 	return res;
+}
+
+struct sshfs *retrieve_sshfs () {
+	return &sshfs;
 }
