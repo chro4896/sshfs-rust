@@ -171,7 +171,7 @@ impl Buffer {
 
 #[repr(C)]
 struct Conn {
-	lock_write: libc::lock_write,
+	lock_write: libc::pthread_mutex_t,
 	processing_thread_started: core::ffi::c_int,
 	rfd: core::ffi::c_int,
 	wfd: core::ffi::c_int,
