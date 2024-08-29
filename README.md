@@ -5,6 +5,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 現時点で下記の関数をRust に置き換えている。
 
 - random_string
+- sshfs_link
 
 これ以下は、オリジナルのSSHFS のREADME である。
 
