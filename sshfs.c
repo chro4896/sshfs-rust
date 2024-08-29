@@ -2517,18 +2517,7 @@ static int sshfs_rmdir(const char *path)
 	return err;
 }
 
-static int sshfs_do_rename(const char *from, const char *to)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, from);
-	buf_add_path(&buf, to);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_RENAME, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_do_rename(const char *from, const char *to);
 
 static int sshfs_ext_posix_rename(const char *from, const char *to)
 {
