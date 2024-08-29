@@ -232,7 +232,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
-pub extern "C" unsafe fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
+unsafe pub extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
         *s_ptr.offset(idx.try_into().unwrap()) =
             (b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10);
