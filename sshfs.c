@@ -350,6 +350,7 @@ struct sshfs {
 	GHashTable *reqtab;
 	GHashTable *conntab;
 	pthread_mutex_t lock;
+	pthread_mutex_t *lock_ptr;
 	unsigned int randseed;
 	int max_conns;
 	char *vsock;
@@ -4438,5 +4439,6 @@ int main(int argc, char *argv[])
 }
 
 struct sshfs *retrieve_sshfs () {
+	sshfs.lock_ptr = &(sshfs.lock);
 	return &sshfs;
 }
