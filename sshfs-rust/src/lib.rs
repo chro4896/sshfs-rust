@@ -193,7 +193,7 @@ extern "C" {
         ssh_op_type: u8,
         buf: *const Buffer_sys,
         expect_type: u8,
-        outbuf: *mut Buffer_sys,
+        outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
@@ -241,7 +241,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
             SSH_FXP_REMOVE,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
@@ -276,7 +276,7 @@ pub extern "C" fn sshfs_link(
                 SSH_FXP_EXTENDED,
                 &buf,
                 SSH_FXP_STATUS,
-                std::ptr::null_mut(),
+                None,
             )
         }
     } else {
