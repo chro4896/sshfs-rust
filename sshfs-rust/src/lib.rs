@@ -193,8 +193,9 @@ struct Conn {
 	file_count: core::ffi::c_int,
 }
 
+#[repr(C)]
 struct DirHandle {
-	buf: Buffer,
+	buf: Buffer_sys,
 	conn: Option<Box<Conn>>,
 }
 
