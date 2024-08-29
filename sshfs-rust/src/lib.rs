@@ -23,6 +23,15 @@ struct fuse_args {
 }
 
 #[repr(C)]
+struct fuse_file_info {
+	flags: core::ffi::c_int,
+	bitfield: u64,
+	fh: u64,
+	lock_owner: u64,
+	poll_events: u32,
+}
+
+#[repr(C)]
 struct sshfs {
 	directport: *mut core::ffi::c_char,
 	ssh_command: *mut core::ffi::c_char,
