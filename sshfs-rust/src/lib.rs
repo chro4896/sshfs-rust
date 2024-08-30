@@ -285,14 +285,13 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
             )
 	};
 	if err != 0 {
-		handle.buf.len = handle.buf.size;
 		unsafe {
 		    let mut conn = Box::from_raw(handle.conn);
-		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+		    libc::pthread_mutex_lock(retrieve_sshfs().lock_ptr);
 		    conn.dir_count += 1;
-		    handle.conn = Box::into_raw(conn);
-		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+		    libc::pthread_mutex_unlock(retrieve_sshfs().lock_ptr);
 	    }
+		handle.conn = Box::into_raw(conn);
 		fi.fh = Box::into_raw(handle) as u64;
 	}
 	err
