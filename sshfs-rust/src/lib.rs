@@ -285,7 +285,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
             )
 	};
 	if err != 0 {
-		let mut conn = Box::from_ptr(handle.conn);
+		let mut conn = Box::from_raw(handle.conn);
 		conn.dir_count += 1;
 		handle.conn = Box::into_raw(conn);
 		fi.fh = Box::into_raw(handle) as u64;
