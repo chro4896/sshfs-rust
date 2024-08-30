@@ -196,7 +196,7 @@ struct Conn {
 #[repr(C)]
 struct DirHandle {
 	buf: Buffer_sys,
-	conn: Option<Box<Conn>>,
+	conn: Option<&Conn>,
 }
 
 extern "C" {
@@ -268,6 +268,23 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_fil
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
+	let handle = DirHandle {
+		buf: Buffer_sys {
+			p: std::ptr::null_mut(),
+			len: 0,
+			size: 0,
+		},
+		conn: unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) },
+	};
+	unsafe {
+		sftp_request(
+                handle.conn,
+                SSH_FXP_OPENDIR,
+                &buf,
+                SSH_FXP_HANDLE,
+                Some(handle.buf),
+            )
+	}
 }
 
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
