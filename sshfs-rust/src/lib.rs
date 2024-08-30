@@ -63,7 +63,7 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 				eprintln!("protocol error");
 			} else if req.reply_type == SSH_FXP_STATUS {
 				let mut serr: u32 = 0;
-				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys, &mut serr as *mut u32) } != -1 {
+				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void, &mut serr as *mut u32) } != -1 {
 					match serr {
 						SSH_FX_OK => {
 							if expect_type == SSH_FXP_STATUS {
