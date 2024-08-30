@@ -187,9 +187,9 @@ extern "C" {
     fn get_conn(
         sshfs_file: *const core::ffi::c_void,
         path: *const core::ffi::c_void,
-    ) -> Option<&'static mut Conn>;
+    ) -> *mut Conn;
     fn sftp_request(
-        conn: Option<&mut Conn>,
+        conn: *mut Conn,
         ssh_op_type: u8,
         buf: *const Buffer_sys,
         expect_type: u8,
