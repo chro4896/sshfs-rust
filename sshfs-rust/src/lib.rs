@@ -16,7 +16,6 @@ const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
 const MY_EOF: core::ffi::c_int = 1;
 
 extern "C" {
-    fn sshfs_base_path() -> *const core::ffi::c_char;
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
