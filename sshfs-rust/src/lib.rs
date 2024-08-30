@@ -24,7 +24,7 @@ extern "C" {
 #[repr(C)]
 struct Request {
 	want_reply: core::ffi::c_uint,
-	ready: mut libc::sem_t,
+	ready: libc::sem_t,
 	reply_type: u8,
 	id: u32,
 	replied: core::ffi::c_int,
