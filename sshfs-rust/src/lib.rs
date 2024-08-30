@@ -262,7 +262,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: mut Box<fuse_file_info>) -> core::ffi::c_int {
+pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_file_info>) -> core::ffi::c_int {
 	let path = get_real_path(path);
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
