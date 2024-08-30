@@ -19,18 +19,17 @@ extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
-    fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
 #[repr(C)]
-struct Request_ext_rust {
+struct Request {
 	want_reply: core::ffi::c_uint,
-	ready: *mut libc::sem_t,
+	ready: mut libc::sem_t,
 	reply_type: u8,
 	id: u32,
 	replied: core::ffi::c_int,
 	error: core::ffi::c_int,
-	reply: *mut core::ffi::c_void,
+	reply: Buffer_sys,
 	start: libc::timeval,
 	data: *mut core::ffi::c_void,
 	end_func: *mut core::ffi::c_void,
@@ -45,16 +44,14 @@ struct List_head {
 	next: *mut List_head,
 }
 
-pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8, expect_type: u8, outbuf: *mut core::ffi::c_void, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
+pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: *mut core::ffi::c_void, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
 	let mut err = 0;
-	
-	let mut req = unsafe { req.as_mut().unwrap() };
 	
 	if req.error != 0 {
 		err = req.error;
 	} else {
 		loop {
-			if unsafe { libc::sem_wait(req.ready) } != 0 {
+			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } != 0 {
 				break;
 			}
 		}
@@ -66,7 +63,7 @@ pub extern "C" fn sftp_request_wait_rust(req: *mut Request_ext_rust, op_type: u8
 				eprintln!("protocol error");
 			} else if req.reply_type == SSH_FXP_STATUS {
 				let mut serr: u32 = 0;
-				if unsafe { buf_get_uint32(req.reply, &mut serr as *mut u32) } != -1 {
+				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys, &mut serr as *mut u32) } != -1 {
 					match serr {
 						SSH_FX_OK => {
 							if expect_type == SSH_FXP_STATUS {
