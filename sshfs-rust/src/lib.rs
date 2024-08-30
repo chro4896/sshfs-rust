@@ -262,7 +262,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_file_info>) -> core::ffi::c_int {
+pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: mut Box<fuse_file_info>) -> core::ffi::c_int {
 	let path = get_real_path(path);
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
@@ -275,7 +275,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_fil
 		},
 		conn: unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) },
 	});
-	unsafe {
+	let err = unsafe {
 		sftp_request(
                 handle.conn,
                 SSH_FXP_OPENDIR,
@@ -283,7 +283,11 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_fil
                 SSH_FXP_HANDLE,
                 Some(&mut handle.buf),
             )
+	};
+	if err != 0 {
+		fi.fh = Box::into_raw(handle) as u64;
 	}
+	err
 }
 
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
