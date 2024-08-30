@@ -180,7 +180,6 @@ impl Buffer {
     }
 }
 
-
 #[repr(C)]
 struct Conn {
 	lock_write: libc::pthread_mutex_t,
@@ -196,7 +195,7 @@ struct Conn {
 #[repr(C)]
 struct DirHandle {
 	buf: Buffer_sys,
-	conn: Option<&'static Conn>,
+	conn: Option<&'static mut Conn>,
 }
 
 extern "C" {
