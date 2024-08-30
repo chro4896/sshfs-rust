@@ -298,6 +298,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
 	err
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
         *s_ptr.offset(idx.try_into().unwrap()) =
