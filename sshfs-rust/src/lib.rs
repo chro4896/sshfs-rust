@@ -267,14 +267,14 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, fi: Box<fuse_fil
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
-	let mut handle = DirHandle {
+	let mut handle = Box::new(DirHandle {
 		buf: Buffer_sys {
 			p: std::ptr::null_mut(),
 			len: 0,
 			size: 0,
 		},
 		conn: unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) },
-	};
+	});
 	unsafe {
 		sftp_request(
                 handle.conn,
