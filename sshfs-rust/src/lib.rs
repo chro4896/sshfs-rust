@@ -44,7 +44,7 @@ struct List_head {
 	next: *mut List_head,
 }
 
-pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: *mut core::ffi::c_void, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
+pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
 	let mut err = 0;
 	
 	if req.error != 0 {
@@ -92,6 +92,19 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 					}
 				}
 			} else {
+				unsafe {
+					outbuf.p = libc::malloc((req.reply.size-req.reply.len) as libc::size_t) as *const u8;
+					if outbuf.p == (std::ptr::null_mut() as *const u8) {
+						panic!("sshfs: memory allocation failed");
+					}
+					outbuf.len = 0;
+					outbuf.size = (req.reply.size-req.reply.len) as usize;
+					if req.reply.len + outbuf.size > req.reply.size {
+						eprintln!("buffer too short");
+					} else {
+						libc::memcpy(outbuf.p, req.reply.p.offset(req.reply.len), outbuf.size);
+					}
+				}
 			}
 		}
 	}
