@@ -255,7 +255,7 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
             SSH_FXP_RMDIR,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
