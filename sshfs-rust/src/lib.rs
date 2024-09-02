@@ -126,19 +126,19 @@ struct Buffer {
 
 #[repr(C)]
 struct Conn {
-	lock_write: libc::pthread_mutex_t,
-	processing_thread_started: core::ffi::c_int,
-	rfd: core::ffi::c_int,
-	wfd: core::ffi::c_int,
-	connver: core::ffi::c_int,
-	req_count: core::ffi::c_int,
-	dir_count: core::ffi::c_int,
-	file_count: core::ffi::c_int,
+    lock_write: libc::pthread_mutex_t,
+    processing_thread_started: core::ffi::c_int,
+    rfd: core::ffi::c_int,
+    wfd: core::ffi::c_int,
+    connver: core::ffi::c_int,
+    req_count: core::ffi::c_int,
+    dir_count: core::ffi::c_int,
+    file_count: core::ffi::c_int,
 }
 
 impl Buffer {
     fn new(size: usize) -> Self {
-        let p = vec![0;size];
+        let p = vec![0; size];
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
@@ -184,10 +184,7 @@ impl Buffer {
 }
 
 extern "C" {
-    fn get_conn(
-        sshfs_file: *const core::ffi::c_void,
-        path: *const core::ffi::c_void,
-    ) -> *mut Conn;
+    fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn sftp_request(
         conn: *mut Conn,
         ssh_op_type: u8,
@@ -248,11 +245,19 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = get_real_path(path);
-	let mut buf = Buffer::new(0);
-	buf.add_str(&path);
-	let buf = unsafe { buf.translate_into_sys() };
-	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
+    let path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RMDIR,
+            &buf,
+            SSH_FXP_STATUS,
+            std::ptr::null_mut(),
+        )
+    }
 }
 
 #[no_mangle]
