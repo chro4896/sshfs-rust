@@ -247,6 +247,15 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
+pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let path = get_real_path(path);
+	let mut buf = Buffer::new(0);
+	buf.add_str(&path);
+	let buf = unsafe { buf.translate_into_sys() };
+	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
         *s_ptr.offset(idx.try_into().unwrap()) =
