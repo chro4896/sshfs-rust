@@ -104,6 +104,7 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 						eprintln!("buffer too short");
 					} else {
 						libc::memcpy(outbuf.p as *mut core::ffi::c_void, req.reply.p.offset(req.reply.len.try_into().unwrap()) as *const core::ffi::c_void, outbuf.size);
+						req.reply.len += outbuf.size;
 					}
 				}
 			}
