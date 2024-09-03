@@ -44,6 +44,7 @@ struct List_head {
 	next: *mut List_head,
 }
 
+#[no_mangle]
 pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
 	let mut err = 0;
 	
