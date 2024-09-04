@@ -55,7 +55,7 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 	} else {
 	    println!("sftp_request_wait_rust wait sem");
 		loop {
-			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } != 0 {
+			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } == 0 {
 				break;
 			}
 		}
