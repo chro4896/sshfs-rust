@@ -117,6 +117,7 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 						req.reply.len += outbuf.size;
 					}
 				}
+				err = 0;
 			}
 		}
 	}
