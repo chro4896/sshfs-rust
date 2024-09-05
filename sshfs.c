@@ -1978,7 +1978,6 @@ int sftp_request_wait_rust(struct request *req, uint8_t type,
 static int sftp_request_wait(struct request *req, uint8_t type,
                              uint8_t expect_type, struct buffer *outbuf)
 {
-	printf("sftp_request_wait %p\n", &(req->ready));
 	return sftp_request_wait_rust(req, type, expect_type, outbuf, req);
 }
 
