@@ -48,21 +48,16 @@ struct List_head {
 pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
 	let mut err = 0;
 	
-	println!("sftp_request_wait_rust");
 	if req.error != 0 {
-	    println!("sftp_request_wait_rust error");
 		err = req.error;
 	} else {
-	    println!("sftp_request_wait_rust wait sem");
 		loop {
 			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } == 0 {
 				break;
 			}
 		}
-	    println!("sftp_request_wait_rust have got sem");
 		if req.error != 0 {
 			err = req.error;
-	        println!("sftp_request_wait_rust error while waiting");
 		} else {
 			err = (-1)*libc::EIO;
 			if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
@@ -102,7 +97,6 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 					}
 				}
 			} else {
-	            println!("sftp_request_wait_rust buffer");
 				unsafe {
 					outbuf.p = libc::malloc((req.reply.size-req.reply.len) as libc::size_t) as *const u8;
 					if outbuf.p == (std::ptr::null_mut() as *const u8) {
