@@ -67,7 +67,6 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void, &mut serr as *mut u32) } != -1 {
 					match serr {
 						SSH_FX_OK => {
-	                    println!("sftp_request_wait_rust SSH_FX_OK");
 							if expect_type == SSH_FXP_STATUS {
 								err = 0;
 							} else {
@@ -75,7 +74,6 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 							}
 						},
 						SSH_FX_EOF => {
-	                    println!("sftp_request_wait_rust SSH_FX_EOF");
 							if op_type == SSH_FXP_READ || op_type == SSH_FXP_READDIR {
 								err = MY_EOF;
 							} else {
@@ -83,7 +81,6 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 							}
 						},
 						SSH_FX_FAILURE => {
-	                    println!("sftp_request_wait_rust SSH_FX_FAILURE");
 							if op_type == SSH_FXP_RMDIR {
 								err = (-1)*libc::ENOTEMPTY;
 							} else {
@@ -120,7 +117,6 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 		request_free(req_orig);
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 	}
-	println!("sftp_request_wait_rust error return");
 	err
 }
 
