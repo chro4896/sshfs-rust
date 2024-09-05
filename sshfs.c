@@ -350,6 +350,7 @@ struct sshfs {
 	GHashTable *reqtab;
 	GHashTable *conntab;
 	pthread_mutex_t lock;
+	pthread_mutex_t *lock_ptr;
 	unsigned int randseed;
 	int max_conns;
 	char *vsock;
@@ -800,7 +801,7 @@ static inline int buf_get_uint8(struct buffer *buf, uint8_t *val)
 	return buf_get_mem(buf, val, 1);
 }
 
-static inline int buf_get_uint32(struct buffer *buf, uint32_t *val)
+int buf_get_uint32(struct buffer *buf, uint32_t *val)
 {
 	uint32_t nval;
 	if (buf_get_mem(buf, &nval, 4) == -1)
@@ -1458,7 +1459,7 @@ static int sftp_read(struct conn *conn, uint8_t *type, struct buffer *buf)
 	return res;
 }
 
-static void request_free(struct request *req)
+void request_free(struct request *req)
 {
 	if (req->end_func)
 		req->end_func(req);
@@ -1750,7 +1751,7 @@ out:
 	return res;
 }
 
-static int sftp_error_to_errno(uint32_t error)
+int sftp_error_to_errno(uint32_t error)
 {
 	switch (error) {
 	case SSH_FX_OK:                return 0;
@@ -1971,67 +1972,13 @@ static void *sshfs_init(struct fuse_conn_info *conn,
 	return NULL;
 }
 
+int sftp_request_wait_rust(struct request *req, uint8_t type,
+                             uint8_t expect_type, struct buffer *outbuf, struct request *req_orig);
+
 static int sftp_request_wait(struct request *req, uint8_t type,
                              uint8_t expect_type, struct buffer *outbuf)
 {
-	int err;
-
-	if (req->error) {
-		err = req->error;
-		goto out;
-	}
-	while (sem_wait(&req->ready));
-	if (req->error) {
-		err = req->error;
-		goto out;
-	}
-	err = -EIO;
-	if (req->reply_type != expect_type &&
-	    req->reply_type != SSH_FXP_STATUS) {
-		fprintf(stderr, "protocol error\n");
-		goto out;
-	}
-	if (req->reply_type == SSH_FXP_STATUS) {
-		uint32_t serr;
-		if (buf_get_uint32(&req->reply, &serr) == -1)
-			goto out;
-
-		switch (serr) {
-		case SSH_FX_OK:
-			if (expect_type == SSH_FXP_STATUS)
-				err = 0;
-			else
-				err = -EIO;
-			break;
-
-		case SSH_FX_EOF:
-			if (type == SSH_FXP_READ || type == SSH_FXP_READDIR)
-				err = MY_EOF;
-			else
-				err = -EIO;
-			break;
-
-		case SSH_FX_FAILURE:
-			if (type == SSH_FXP_RMDIR)
-				err = -ENOTEMPTY;
-			else
-				err = -EPERM;
-			break;
-
-		default:
-			err = -sftp_error_to_errno(serr);
-		}
-	} else {
-		buf_init(outbuf, req->reply.size - req->reply.len);
-		buf_get_mem(&req->reply, outbuf->p, outbuf->size);
-		err = 0;
-	}
-
-out:
-	pthread_mutex_lock(&sshfs.lock);
-	request_free(req);
-	pthread_mutex_unlock(&sshfs.lock);
-	return err;
+	return sftp_request_wait_rust(req, type, expect_type, outbuf, req);
 }
 
 static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
@@ -4455,5 +4402,6 @@ int main(int argc, char *argv[])
 }
 
 struct sshfs *retrieve_sshfs () {
+	sshfs.lock_ptr = &(sshfs.lock);
 	return &sshfs;
 }
