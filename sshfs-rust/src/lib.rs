@@ -1,10 +1,13 @@
 use rand::Rng;
 
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_RMDIR: u8 = 15;
+const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
+const SSH_FXP_HANDLE: u8 = 102;
 const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FX_OK: u32 = 0;
@@ -225,9 +228,21 @@ struct Buffer {
     len: usize,
 }
 
+#[repr(C)]
+struct Conn {
+    lock_write: libc::pthread_mutex_t,
+    processing_thread_started: core::ffi::c_int,
+    rfd: core::ffi::c_int,
+    wfd: core::ffi::c_int,
+    connver: core::ffi::c_int,
+    req_count: core::ffi::c_int,
+    dir_count: core::ffi::c_int,
+    file_count: core::ffi::c_int,
+}
+
 impl Buffer {
     fn new(size: usize) -> Self {
-        let p = vec![0;size];
+        let p = vec![0; size];
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
@@ -273,16 +288,13 @@ impl Buffer {
 }
 
 extern "C" {
-    fn get_conn(
-        sshfs_file: *const core::ffi::c_void,
-        path: *const core::ffi::c_void,
-    ) -> *mut core::ffi::c_void;
+    fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn sftp_request(
-        conn: *mut core::ffi::c_void,
+        conn: *mut Conn,
         ssh_op_type: u8,
         buf: *const Buffer_sys,
         expect_type: u8,
-        outbuf: *mut Buffer_sys,
+        outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
@@ -330,20 +342,29 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
             SSH_FXP_REMOVE,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = get_real_path(path);
-	let mut buf = Buffer::new(0);
-	buf.add_str(&path);
-	let buf = unsafe { buf.translate_into_sys() };
-	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
+    let path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RMDIR,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
         *s_ptr.offset(idx.try_into().unwrap()) =
@@ -373,7 +394,7 @@ pub extern "C" fn sshfs_link(
                 SSH_FXP_EXTENDED,
                 &buf,
                 SSH_FXP_STATUS,
-                std::ptr::null_mut(),
+                None,
             )
         }
     } else {
