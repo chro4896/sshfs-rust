@@ -269,7 +269,11 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 <<<<<<< HEAD
+<<<<<<< HEAD
 	// let buf = unsafe { buf.translate_into_sys() };
+=======
+	let buf = unsafe { buf.translate_into_sys() };
+>>>>>>> parent of eab2bc2 (printf debug on sshfs_opendir)
 	// let handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
 	// unsafe {
 	// 	(*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
