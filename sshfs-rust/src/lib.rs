@@ -49,10 +49,8 @@ struct List_head {
 
 #[no_mangle]
 pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
-	let err;
-	
-	if req.error != 0 {
-		err = req.error;
+	let err = if req.error != 0 {
+		req.error
 	} else {
 		loop {
 			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } == 0 {
@@ -60,40 +58,42 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 			}
 		}
 		if req.error != 0 {
-			err = req.error;
+			req.error
 		} else {
-			err = (-1)*libc::EIO;
 			if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
 				eprintln!("protocol error");
+				(-1)*libc::EIO
 			} else if req.reply_type == SSH_FXP_STATUS {
 				let mut serr: u32 = 0;
 				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void, &mut serr as *mut u32) } != -1 {
 					match serr {
 						SSH_FX_OK => {
 							if expect_type == SSH_FXP_STATUS {
-								err = 0;
+								0
 							} else {
-								err = (-1)*libc::EIO;
+								(-1)*libc::EIO
 							}
 						},
 						SSH_FX_EOF => {
 							if op_type == SSH_FXP_READ || op_type == SSH_FXP_READDIR {
-								err = MY_EOF;
+								MY_EOF
 							} else {
-								err = (-1)*libc::EIO;
+								(-1)*libc::EIO
 							}
 						},
 						SSH_FX_FAILURE => {
 							if op_type == SSH_FXP_RMDIR {
-								err = (-1)*libc::ENOTEMPTY;
+								(-1)*libc::ENOTEMPTY
 							} else {
-								err = (-1)*libc::EPERM;
+								(-1)*libc::EPERM
 							}
 						},
 						_ => {
-							err = unsafe { (-1)*sftp_error_to_errno(serr) };
+							unsafe { (-1)*sftp_error_to_errno(serr) }
 						}
 					}
+				} else {
+					(-1)*libc::EIO
 				}
 			} else {
 				unsafe {
@@ -110,10 +110,10 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 						req.reply.len += outbuf.size;
 					}
 				}
-				err = 0;
+				0
 			}
 		}
-	}
+	};
 	unsafe {
 		libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
 		request_free(req_orig);
@@ -344,7 +344,7 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
-    fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: &mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
+    fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
@@ -385,7 +385,7 @@ pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::
 		0
 	} else {
 		let mut stbuf;
-		let err = unsafe { sshfs_getattr(path, &mut stbuf, std::ptr::null_mut()) };
+		let err = unsafe { sshfs_getattr(path, &mut stbuf as *mut libc::stat, std::ptr::null_mut()) };
 		if err == 0 {
 			0
 		} else if (stbuf.st_mode & libc::S_IFREG) > 0 && (stbuf.st_mode & (libc::S_IXUSR|libc::S_IXGRP|libc::S_IXOTH)) == 0 {
