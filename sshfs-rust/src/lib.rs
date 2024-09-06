@@ -281,7 +281,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
                 Some(&mut (*handle).buf),
             )
 	};
-	if err != 0 {
+	if err == 0 {
 		unsafe {
     		(*handle).buf.len = (*handle).buf.size;
 		}
