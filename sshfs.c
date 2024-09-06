@@ -2389,8 +2389,14 @@ static int sshfs_releasedir(const char *path, struct fuse_file_info *fi)
 	pthread_mutex_lock(&sshfs.lock);
 	handle->conn->dir_count--;
 	pthread_mutex_unlock(&sshfs.lock);
+	printf("release\n");
+	fflush(stdout);
 	buf_free(&handle->buf);
+	printf("release\n");
+	fflush(stdout);
 	g_free(handle);
+	printf("release\n");
+	fflush(stdout);
 	return err;
 }
 
