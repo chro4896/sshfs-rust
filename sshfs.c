@@ -2366,7 +2366,7 @@ static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 	int err;
 	struct dir_handle *handle;
 
-    printf("sshfs_readdir called %lld\n", fi->fh);
+    printf("sshfs_readdir called\n");
     fflush(stdout);
 	handle = (struct dir_handle*) fi->fh;
 
