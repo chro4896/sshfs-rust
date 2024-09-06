@@ -1,10 +1,13 @@
 use rand::Rng;
 
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_RMDIR: u8 = 15;
+const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
+const SSH_FXP_HANDLE: u8 = 102;
 const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FX_OK: u32 = 0;
@@ -124,6 +127,15 @@ struct fuse_args {
     argc: core::ffi::c_int,
     argv: *mut *mut core::ffi::c_char,
     allocated: core::ffi::c_int,
+}
+
+#[repr(C)]
+struct fuse_file_info {
+	flags: core::ffi::c_int,
+	bitfield: u64,
+	fh: u64,
+	lock_owner: u64,
+	poll_events: u32,
 }
 
 #[repr(C)]
@@ -272,17 +284,35 @@ impl Buffer {
     }
 }
 
+#[repr(C)]
+struct Conn {
+	lock_write: libc::pthread_mutex_t,
+	processing_thread_started: core::ffi::c_int,
+	rfd: core::ffi::c_int,
+	wfd: core::ffi::c_int,
+	connver: core::ffi::c_int,
+	req_count: core::ffi::c_int,
+	dir_count: core::ffi::c_int,
+	file_count: core::ffi::c_int,
+}
+
+#[repr(C)]
+struct DirHandle {
+	buf: Buffer_sys,
+	conn: *mut Conn,
+}
+
 extern "C" {
     fn get_conn(
         sshfs_file: *const core::ffi::c_void,
         path: *const core::ffi::c_void,
-    ) -> *mut core::ffi::c_void;
+    ) -> *mut Conn;
     fn sftp_request(
-        conn: *mut core::ffi::c_void,
+        conn: *mut Conn,
         ssh_op_type: u8,
         buf: *const Buffer_sys,
         expect_type: u8,
-        outbuf: *mut Buffer_sys,
+        outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
@@ -330,18 +360,54 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
             SSH_FXP_REMOVE,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
 
 #[no_mangle]
+<<<<<<< HEAD
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
+=======
+pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
+>>>>>>> convert-sshfs_opendir-into-rust
 	let path = get_real_path(path);
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
+<<<<<<< HEAD
 	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
+=======
+	let handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
+	unsafe {
+		(*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
+	}
+	let err = unsafe {
+		sftp_request(
+                (*handle).conn,
+                SSH_FXP_OPENDIR,
+                &buf,
+                SSH_FXP_HANDLE,
+                Some(&mut (*handle).buf),
+            )
+	};
+	if err == 0 {
+		unsafe {
+    		(*handle).buf.len = (*handle).buf.size;
+		}
+		unsafe {
+		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+		    (*((*handle).conn)).dir_count += 1;
+		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	    }
+		fi.fh = handle as u64;
+	} else {
+		unsafe {
+    		libc::free(handle as *mut core::ffi::c_void);
+		}
+	}
+	err
+>>>>>>> convert-sshfs_opendir-into-rust
 }
 
 #[no_mangle]
@@ -374,7 +440,7 @@ pub extern "C" fn sshfs_link(
                 SSH_FXP_EXTENDED,
                 &buf,
                 SSH_FXP_STATUS,
-                std::ptr::null_mut(),
+                None,
             )
         }
     } else {
