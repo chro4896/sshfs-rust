@@ -274,7 +274,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
 	}
 	let err = unsafe {
 		sftp_request(
-                handle.conn,
+                (*handle).conn,
                 SSH_FXP_OPENDIR,
                 &buf,
                 SSH_FXP_HANDLE,
