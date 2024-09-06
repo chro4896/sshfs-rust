@@ -49,7 +49,7 @@ struct List_head {
 
 #[no_mangle]
 pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
-	let mut err = 0;
+	let err;
 	
 	if req.error != 0 {
 		err = req.error;
@@ -384,24 +384,7 @@ pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::
 	if (mask & libc::X_OK) == 0 {
 		0
 	} else {
-		let mut stbuf = libc::stat {
-			st_dev: 0,
-			st_ino: 0,
-			st_nlink: 0,
-			st_mode: 0,
-			st_uid: 0,
-			st_gid: 0,
-			st_rdev: 0,
-			st_size: 0,
-			st_blksize: 0,
-			st_blocks: 0,
-			st_atime: 0,
-			st_atime_nsec: 0,
-			st_mtime: 0,
-			st_mtime_nsec: 0,
-			st_ctime: 0,
-			st_ctime_nsec: 0,
-		};
+		let mut stbuf;
 		let err = unsafe { sshfs_getattr(path, &mut stbuf, std::ptr::null_mut()) };
 		if err == 0 {
 			0
