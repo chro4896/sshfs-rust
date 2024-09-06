@@ -381,6 +381,36 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
 
 #[no_mangle]
 pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::c_int) -> core::ffi::c_int {
+	if (mask & libc::X_OK) == 0 {
+		0
+	} else {
+		let mut stbuf = libc::stat {
+			st_dev: 0,
+			st_ino: 0,
+			st_nlink: 0,
+			st_mode: 0,
+			st_uid: 0,
+			st_gid: 0,
+			st_rdev: 0,
+			st_size: 0,
+			st_blksize: 0,
+			st_blocks: 0,
+			st_atime: 0,
+			st_atime_nsec: 0,
+			st_mtime: 0,
+			st_mtime_nsec: 0,
+			st_ctime: 0,
+			st_ctime_nsec: 0,
+		};
+		let err = unsafe { sshfs_getattr(path, &mut stbuf, std::ptr::null_mut()) };
+		if err == 0 {
+			0
+		} else if (stbuf.st_mode & libc::S_IFREG) > 0 && (stbuf.st_mode & (libc::S_IXUSR|libc::S_IXGRP|libc::S_IXOTH)) == 0 {
+			-(libc::EACCES as core::ffi::c_int)
+		} else {
+			err
+		}
+	}
 }
 
 #[no_mangle]
