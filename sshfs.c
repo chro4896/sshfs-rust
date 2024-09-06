@@ -2366,6 +2366,8 @@ static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 	int err;
 	struct dir_handle *handle;
 
+    printf("sshfs_readdir called\n");
+    fflush(stdout);
 	handle = (struct dir_handle*) fi->fh;
 
 	if (sshfs.sync_readdir)
@@ -2375,6 +2377,8 @@ static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 		err = sftp_readdir_async(handle->conn, &handle->buf, dbuf,
 					 offset, filler);
 
+    printf("sshfs_readdir will return\n");
+    fflush(stdout);
 	return err;
 }
 
