@@ -296,6 +296,7 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
+    fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: &mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
@@ -328,6 +329,10 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
         real_path.push(b'.');
     }
     real_path
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::c_int) -> core::ffi::c_int {
 }
 
 #[no_mangle]
