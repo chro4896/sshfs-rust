@@ -113,7 +113,7 @@ struct sshfs {
 }
 
 #[repr(C)]
-struct Buffer_sys {
+pub struct Buffer_sys {
     p: *const u8,
     len: usize,
     size: usize,
@@ -125,7 +125,7 @@ struct Buffer {
 }
 
 #[repr(C)]
-struct Conn {
+pub struct Conn {
     lock_write: libc::pthread_mutex_t,
     processing_thread_started: core::ffi::c_int,
     rfd: core::ffi::c_int,
