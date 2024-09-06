@@ -384,15 +384,22 @@ pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::
 	if (mask & libc::X_OK) == 0 {
 		0
 	} else {
-		let mut stbuf: libc::stat;
-		let err = unsafe { sshfs_getattr(path, &mut stbuf as *mut libc::stat, std::ptr::null_mut()) };
-		if err == 0 {
-			0
-		} else if (stbuf.st_mode & libc::S_IFREG) > 0 && (stbuf.st_mode & (libc::S_IXUSR|libc::S_IXGRP|libc::S_IXOTH)) == 0 {
-			-(libc::EACCES as core::ffi::c_int)
-		} else {
-			err
-		}
+		let stbuf = unsafe { libc::malloc(std::mem::size_of<libc::stat>()) } as *mut libc::stat;
+		let err = unsafe { sshfs_getattr(path, stbuf, std::ptr::null_mut()) };
+		let ret = unsafe {
+			let stbuf = *stbuf;
+		    if err == 0 {
+			    0
+		    } else if (stbuf.st_mode & libc::S_IFREG) > 0 && (stbuf.st_mode & (libc::S_IXUSR|libc::S_IXGRP|libc::S_IXOTH)) == 0 {
+			    -(libc::EACCES as core::ffi::c_int)
+		    } else {
+			    err
+		    }
+	    }
+		unsafe {
+		    libc::free(stbuf as *mut core::ffi::c_void);
+	    }
+	    ret
 	}
 }
 
