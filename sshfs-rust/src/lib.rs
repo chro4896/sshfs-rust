@@ -290,12 +290,10 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 		    (*((*handle).conn)).dir_count += 1;
 		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 	    }
-	    unsafe {
     	println!("{:p} {:p}", handle, & (*handle).buf as *const Buffer_sys);
 		fi.fh = handle as u64;
 	println!("sshfs_opendir will return {}", fi.fh);
     	println!("{:p} {:p}", handle, & (*handle).buf as *const Buffer_sys);
-	}
 	} else {
 		unsafe {
     		libc::free(handle as *mut core::ffi::c_void);
