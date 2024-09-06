@@ -2370,6 +2370,11 @@ static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
     fflush(stdout);
 	handle = (struct dir_handle*) fi->fh;
 
+    printf("sshfs_readdir called %p\n", handle);
+    fflush(stdout);
+    printf("sshfs_readdir called %p\n", &handle->buf);
+    fflush(stdout);
+    
 	if (sshfs.sync_readdir)
 		err = sftp_readdir_sync(handle->conn, &handle->buf, dbuf,
 					offset, filler);
