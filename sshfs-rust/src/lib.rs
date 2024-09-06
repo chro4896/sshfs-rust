@@ -268,7 +268,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
-	let mut handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
+	let handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
 	unsafe {
 		(*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
 	}
@@ -292,7 +292,9 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
 	    }
 		fi.fh = handle as u64;
 	} else {
-		libc::free(handle as *mut core::ffi::c_void);
+		unsafe {
+    		libc::free(handle as *mut core::ffi::c_void);
+		}
 	}
 	println!("sshfs_opendir will return");
 	err
