@@ -296,9 +296,7 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
     		libc::free(handle as *mut core::ffi::c_void);
 		}
 	}
-	unsafe {
-    	println!("{:p} {:p}", handle, &mut (*handle).buf as *mut Buffer_sys);
-	}
+	println!("{:p} {:p}", handle, &mut (*handle).buf as *mut Buffer_sys);
 	println!("sshfs_opendir will return {}", fi.fh);
 	err
 }
