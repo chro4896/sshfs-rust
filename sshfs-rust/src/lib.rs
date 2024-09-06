@@ -268,33 +268,31 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
-	let mut handle = Box::new(DirHandle {
-		buf: Buffer_sys {
-			p: std::ptr::null_mut(),
-			len: 0,
-			size: 0,
-		},
-		conn: unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) },
-	});
+	let mut handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
+	unsafe {
+		(*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
+	}
 	let err = unsafe {
 		sftp_request(
                 handle.conn,
                 SSH_FXP_OPENDIR,
                 &buf,
                 SSH_FXP_HANDLE,
-                Some(&mut handle.buf),
+                Some(&mut (*handle).buf),
             )
 	};
 	if err != 0 {
-		handle.buf.len = handle.buf.size;
 		unsafe {
-		    let mut conn = Box::from_raw(handle.conn);
+    		(*handle).buf.len = (*handle).buf.size;
+		}
+		unsafe {
 		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
-		    conn.dir_count += 1;
-		    handle.conn = Box::into_raw(conn);
+		    (*((*handle).conn)).dir_count += 1;
 		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 	    }
-		fi.fh = Box::into_raw(handle) as u64;
+		fi.fh = handle as u64;
+	} else {
+		libc::free(handle as *mut core::ffi::c_void);
 	}
 	println!("sshfs_opendir will return");
 	err
