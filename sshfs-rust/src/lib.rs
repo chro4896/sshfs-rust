@@ -262,6 +262,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 }
 
 #[no_mangle]
+<<<<<<< HEAD
 pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
 	println!("sshfs_opendir called");
 	let path = get_real_path(path);
@@ -299,6 +300,42 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 	println!("sshfs_opendir will return");
 	// err
 	0
+=======
+pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: Box<fuse_file_info>) -> core::ffi::c_int {
+	let path = get_real_path(path);
+	let mut buf = Buffer::new(0);
+	buf.add_str(&path);
+	let buf = unsafe { buf.translate_into_sys() };
+	let mut handle = Box::new(DirHandle {
+		buf: Buffer_sys {
+			p: std::ptr::null_mut(),
+			len: 0,
+			size: 0,
+		},
+		conn: unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) },
+	});
+	let err = unsafe {
+		sftp_request(
+                handle.conn,
+                SSH_FXP_OPENDIR,
+                &buf,
+                SSH_FXP_HANDLE,
+                Some(&mut handle.buf),
+            )
+	};
+	if err != 0 {
+		handle.buf.len = handle.buf.size;
+		unsafe {
+		    let mut conn = Box::from_raw(handle.conn);
+		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+		    conn.dir_count += 1;
+		    handle.conn = Box::into_raw(conn);
+		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	    }
+		fi.fh = Box::into_raw(handle) as u64;
+	}
+	err
+>>>>>>> parent of ad7ad89 (printf debug on sshfs_opendir)
 }
 
 #[no_mangle]
