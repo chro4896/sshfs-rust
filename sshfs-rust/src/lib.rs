@@ -349,35 +349,11 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
-    let path = get_real_path(path);
-    let mut buf = Buffer::new(0);
-    buf.add_str(&path);
-    let buf = unsafe { buf.translate_into_sys() };
-    unsafe {
-        sftp_request(
-            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
-            SSH_FXP_REMOVE,
-            &buf,
-            SSH_FXP_STATUS,
-            None,
-        )
-    }
-}
-
-#[no_mangle]
-<<<<<<< HEAD
-pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-=======
 pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
->>>>>>> convert-sshfs_opendir-into-rust
 	let path = get_real_path(path);
 	let mut buf = Buffer::new(0);
 	buf.add_str(&path);
 	let buf = unsafe { buf.translate_into_sys() };
-<<<<<<< HEAD
-	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
-=======
 	let handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
 	unsafe {
 		(*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
@@ -407,7 +383,32 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 		}
 	}
 	err
->>>>>>> convert-sshfs_opendir-into-rust
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
+    let path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_REMOVE,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let path = get_real_path(path);
+	let mut buf = Buffer::new(0);
+	buf.add_str(&path);
+	let buf = unsafe { buf.translate_into_sys() };
+	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
 }
 
 #[no_mangle]
