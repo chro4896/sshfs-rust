@@ -25,6 +25,8 @@ struct fuse_args {
     allocated: core::ffi::c_int,
 }
 
+type FuseFillDir = extern "C" fn(*mut core::ffi::c_void, *const core::ffi::c_char, *const core::ffi::c_void, libc::off_t, i32) -> core::ffi::c_int;
+
 #[repr(C)]
 struct fuse_operations {
 	getattr: Option<extern "C" fn(*const core::ffi::c_char, Option<&mut libc::stat>, *mut core::ffi::c_void) -> core::ffi::c_int>,
@@ -147,7 +149,7 @@ struct sshfs {
     ext_statvfs: core::ffi::c_int,
     ext_hardlink: core::ffi::c_int,
     ext_fsync: core::ffi::c_int,
-    op: &mut fuse_operations,
+    op: *mut fuse_operations,
     bytes_sent: u64,
     bytes_received: u64,
     num_sent: u64,
