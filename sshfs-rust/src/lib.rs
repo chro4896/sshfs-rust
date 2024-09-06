@@ -384,7 +384,7 @@ pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::
 	if (mask & libc::X_OK) == 0 {
 		0
 	} else {
-		let mut stbuf;
+		let mut stbuf: libc::stat;
 		let err = unsafe { sshfs_getattr(path, &mut stbuf as *mut libc::stat, std::ptr::null_mut()) };
 		if err == 0 {
 			0
