@@ -448,3 +448,22 @@ pub extern "C" fn sshfs_link(
         -(libc::ENOSYS as core::ffi::c_int)
     }
 }
+
+#[no_mangle]
+pub extern "C" fn sshfs_do_rename(from_path: *mut core::ffi::c_char, to_path: *mut core::ffi::c_char) -> core::ffi::c_int {
+    let from_path = get_real_path(from_path);
+    let to_path = get_real_path(to_path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&from_path);
+    buf.add_str(&to_path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RENAME,
+            &buf,
+            SSH_FXP_STATUS,
+            std::ptr::null_mut(),
+        )
+    }
+}
