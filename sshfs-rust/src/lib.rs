@@ -1,5 +1,6 @@
 use rand::Rng;
 
+const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
@@ -129,6 +130,54 @@ struct fuse_args {
     allocated: core::ffi::c_int,
 }
 
+type FuseFillDir = extern "C" fn(*mut core::ffi::c_void, *const core::ffi::c_char, *const core::ffi::c_void, libc::off_t, i32) -> core::ffi::c_int;
+
+#[repr(C)]
+struct fuse_operations {
+	getattr: Option<extern "C" fn(*const core::ffi::c_char, Option<&mut libc::stat>, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	readlink: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_char, usize) -> core::ffi::c_int>,
+	mknod: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t, libc::dev_t) -> core::ffi::c_int>,
+	mkdir: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t) -> core::ffi::c_int>,
+	unlink: Option<extern "C" fn(*const core::ffi::c_char) -> core::ffi::c_int>,
+	rmdir: Option<extern "C" fn(*const core::ffi::c_char) -> core::ffi::c_int>,
+	symlink: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char) -> core::ffi::c_int>,
+	rename: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char, *const core::ffi::c_uint) -> core::ffi::c_int>,
+	link: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char) -> core::ffi::c_int>,
+	chmod: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	chown: Option<extern "C" fn(*const core::ffi::c_char, libc::uid_t, libc::gid_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	truncate: Option<extern "C" fn(*const core::ffi::c_char, libc::off_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	open: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	read: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_char, usize, libc::off_t, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	write: *const core::ffi::c_void,
+	statfs: *const core::ffi::c_void,
+	flush: *const core::ffi::c_void,
+	release: *const core::ffi::c_void,
+	fsync: *const core::ffi::c_void,
+	setxattr: *const core::ffi::c_void,
+	getxattr: *const core::ffi::c_void,
+	listxattr: *const core::ffi::c_void,
+	removexattr: *const core::ffi::c_void,
+	opendir: *const core::ffi::c_void,
+	readdir: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_void, FuseFillDir, libc::off_t, *mut core::ffi::c_void, i32) -> core::ffi::c_int>,
+	releasedir: *const core::ffi::c_void,
+	fsyncdir: *const core::ffi::c_void,
+	init: *const core::ffi::c_void,
+	destroy: *const core::ffi::c_void,
+	access: *const core::ffi::c_void,
+	create: *const core::ffi::c_void,
+	lock: *const core::ffi::c_void,
+	utimens: *const core::ffi::c_void,
+	bmap: *const core::ffi::c_void,
+	ioctl: *const core::ffi::c_void,
+	poll: *const core::ffi::c_void,
+	write_buf: *const core::ffi::c_void,
+	read_buf: *const core::ffi::c_void,
+	flock: *const core::ffi::c_void,
+	fallocate: *const core::ffi::c_void,
+	copy_file_range: *const core::ffi::c_void,
+	lseek: *const core::ffi::c_void,
+}
+
 #[repr(C)]
 struct fuse_file_info {
 	flags: core::ffi::c_int,
@@ -214,7 +263,7 @@ struct sshfs {
     ext_statvfs: core::ffi::c_int,
     ext_hardlink: core::ffi::c_int,
     ext_fsync: core::ffi::c_int,
-    op: *mut core::ffi::c_void,
+    op: *mut fuse_operations,
     bytes_sent: u64,
     bytes_received: u64,
     num_sent: u64,
@@ -226,7 +275,7 @@ struct sshfs {
 }
 
 #[repr(C)]
-struct Buffer_sys {
+pub struct Buffer_sys {
     p: *const u8,
     len: usize,
     size: usize,
@@ -239,7 +288,7 @@ struct Buffer {
 
 impl Buffer {
     fn new(size: usize) -> Self {
-        let p = vec![0;size];
+        let p = vec![0; size];
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
@@ -303,10 +352,7 @@ struct DirHandle {
 }
 
 extern "C" {
-    fn get_conn(
-        sshfs_file: *const core::ffi::c_void,
-        path: *const core::ffi::c_void,
-    ) -> *mut Conn;
+    fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn sftp_request(
         conn: *mut Conn,
         ssh_op_type: u8,
@@ -420,11 +466,19 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = get_real_path(path);
-	let mut buf = Buffer::new(0);
-	buf.add_str(&path);
-	let buf = unsafe { buf.translate_into_sys() };
-	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, None) }
+    let path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RMDIR,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
 }
 
 #[no_mangle]
