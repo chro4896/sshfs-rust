@@ -463,7 +463,7 @@ pub extern "C" fn sshfs_do_rename(from_path: *mut core::ffi::c_char, to_path: *m
             SSH_FXP_RENAME,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
