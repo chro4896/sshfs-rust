@@ -370,8 +370,6 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 	if err == 0 {
 		unsafe {
     		(*handle).buf.len = (*handle).buf.size;
-		}
-		unsafe {
 		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
 		    (*((*handle).conn)).dir_count += 1;
 		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
@@ -383,6 +381,24 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 		}
 	}
 	err
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_releasedir(_path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
+	unsafe {
+		let handle = fi.fh as *mut DirHandle;
+		let err = sftp_request(
+                (*handle).conn,
+                SSH_FXP_CLOSE,
+                &mut (*handle).buf,
+                0,
+                None,
+            );
+	    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+	    (*((*handle).conn)).dir_count -= 1;
+	    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	    err
+	}
 }
 
 #[no_mangle]

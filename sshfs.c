@@ -2324,21 +2324,7 @@ static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 	return err;
 }
 
-static int sshfs_releasedir(const char *path, struct fuse_file_info *fi)
-{
-	(void) path;
-	int err;
-	struct dir_handle *handle;
-
-	handle = (struct dir_handle*) fi->fh;
-	err = sftp_request(handle->conn, SSH_FXP_CLOSE, &handle->buf, 0, NULL);
-	pthread_mutex_lock(&sshfs.lock);
-	handle->conn->dir_count--;
-	pthread_mutex_unlock(&sshfs.lock);
-	buf_free(&handle->buf);
-	g_free(handle);
-	return err;
-}
+int sshfs_releasedir(const char *path, struct fuse_file_info *fi);
 
 
 static int sshfs_mkdir(const char *path, mode_t mode)
