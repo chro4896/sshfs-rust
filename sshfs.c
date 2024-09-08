@@ -564,6 +564,8 @@ static struct fuse_opt workaround_opts[] = {
 	FUSE_OPT_END
 };
 
+void *req_table_new();
+
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
 
@@ -3444,7 +3446,7 @@ static int processing_init(void)
 	for (i = 0; i < sshfs.max_conns; i++)
 		pthread_mutex_init(&sshfs.conns[i].lock_write, NULL);
 	pthread_cond_init(&sshfs.outstanding_cond, NULL);
-	sshfs.reqtab = g_hash_table_new(NULL, NULL);
+	sshfs.reqtab = req_table_new();
 	if (!sshfs.reqtab) {
 		fprintf(stderr, "failed to create hash table\n");
 		return -1;

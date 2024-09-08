@@ -193,7 +193,7 @@ struct sshfs {
     passive: core::ffi::c_int,
     host: *mut core::ffi::c_char,
     base_path: *mut core::ffi::c_char,
-    reqtab: *mut core::ffi::c_void,
+    reqtab: *mut HashMap<u32, Request>,
     conntab: *mut core::ffi::c_void,
     lock: libc::pthread_mutex_t,
     lock_ptr: *mut libc::pthread_mutex_t,
@@ -335,6 +335,11 @@ pub struct Request {
 struct List_head {
     prev: *mut List_head,
     next: *mut List_head,
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, Request> {
+	Box::into_raw(Box::new(HashMap<u32, Request>::new()))
 }
 
 extern "C" {
