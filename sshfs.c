@@ -347,7 +347,7 @@ struct sshfs {
 	int passive;
 	char *host;
 	char *base_path;
-	GHashTable *reqtab;
+	void *reqtab;
 	GHashTable *conntab;
 	pthread_mutex_t lock;
 	pthread_mutex_t *lock_ptr;
@@ -565,6 +565,7 @@ static struct fuse_opt workaround_opts[] = {
 };
 
 void *req_table_new();
+struct request *req_table_lookup(uint32_t);
 
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
@@ -1535,8 +1536,7 @@ static int process_one_request(struct conn *conn)
 		return -1;
 
 	pthread_mutex_lock(&sshfs.lock);
-	req = (struct request *)
-		g_hash_table_lookup(sshfs.reqtab, GUINT_TO_POINTER(id));
+	req = req_table_lookup(id);
 	if (req == NULL)
 		fprintf(stderr, "request %i not found\n", id);
 	else {

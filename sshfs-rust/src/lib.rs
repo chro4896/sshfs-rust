@@ -342,6 +342,13 @@ pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, Request> {
 	Box::into_raw(Box::new(HashMap<u32, Request>::new()))
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn req_table_lookup(key: u32) -> Option<&Request> {
+	let sshfs_ref = retrieve_sshfs().unwrap();
+	let reqtab = &(*sshfs_ref.reqtab);
+	reqtab.get(key)
+}
+
 extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
