@@ -566,7 +566,7 @@ static struct fuse_opt workaround_opts[] = {
 
 void *req_table_new();
 struct request *req_table_lookup(uint32_t id);
-int req_table_lookup(uint32_t id);
+int req_table_remove(uint32_t id);
 void req_table_insert(uint32_t id, struct request *req);
 void req_table_foreach_remove(void *cfunc, struct conn *conn);
 
