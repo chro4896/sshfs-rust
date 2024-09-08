@@ -344,8 +344,8 @@ pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, *mut Request> {
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
-	let sshfs_ref = retrieve_sshfs().unwrap();
-	let reqtab = &(*sshfs_ref.reqtab);
+	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
 	match reqtab.get(key) {
 		Some(req) => req,
 		None => std::ptr::null_mut() as *mut Request,
@@ -353,13 +353,20 @@ pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
-	let sshfs_ref = retrieve_sshfs().unwrap();
-	let reqtab = &(*sshfs_ref.reqtab);
+pub extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
+	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
 	match reqtab.get(key) {
 		Some(_) => 1,
 		None => 0,
 	}
+}
+
+#[no_mangle]
+pub extern "C" fn req_table_insert(key: u32, val: *mut Request) {
+	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
+	reqtab.insert(key, val);
 }
 
 extern "C" {
