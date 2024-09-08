@@ -336,7 +336,7 @@ struct List_head {
 extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
-    fn request_free(req: *mut core::ffi::c_void);
+    fn request_free(req: *mut Request);
     fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn sftp_request(
         conn: *mut Conn,
@@ -395,7 +395,7 @@ pub extern "C" fn sshfs_access(
         let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
         let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
-        let err = unsafe { sshfs_ref.op.getattr(path, stbuf, std::ptr::null_mut()) };
+        let err = unsafe { (*(sshfs_ref.op)).getattr(path, stbuf, std::ptr::null_mut()) };
         let ret = unsafe {
             let stbuf = *stbuf;
             if err == 0 {
@@ -434,69 +434,67 @@ pub extern "C" fn sftp_request_wait(
         }
         if req.error != 0 {
             req.error
-        } else {
-            if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
-                eprintln!("protocol error");
-                (-1) * libc::EIO
-            } else if req.reply_type == SSH_FXP_STATUS {
-                let mut serr: u32 = 0;
-                if unsafe {
-                    buf_get_uint32(
-                        &mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void,
-                        &mut serr as *mut u32,
-                    )
-                } != -1
-                {
-                    match serr {
-                        SSH_FX_OK => {
-                            if expect_type == SSH_FXP_STATUS {
-                                0
-                            } else {
-                                (-1) * libc::EIO
-                            }
+        } else if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
+            eprintln!("protocol error");
+            (-1) * libc::EIO
+        } else if req.reply_type == SSH_FXP_STATUS {
+            let mut serr: u32 = 0;
+            if unsafe {
+                buf_get_uint32(
+                    &mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void,
+                    &mut serr as *mut u32,
+                )
+            } != -1
+            {
+                match serr {
+                    SSH_FX_OK => {
+                        if expect_type == SSH_FXP_STATUS {
+                            0
+                        } else {
+                            (-1) * libc::EIO
                         }
-                        SSH_FX_EOF => {
-                            if op_type == SSH_FXP_READ || op_type == SSH_FXP_READDIR {
-                                MY_EOF
-                            } else {
-                                (-1) * libc::EIO
-                            }
-                        }
-                        SSH_FX_FAILURE => {
-                            if op_type == SSH_FXP_RMDIR {
-                                (-1) * libc::ENOTEMPTY
-                            } else {
-                                (-1) * libc::EPERM
-                            }
-                        }
-                        _ => unsafe { (-1) * sftp_error_to_errno(serr) },
                     }
-                } else {
-                    (-1) * libc::EIO
+                    SSH_FX_EOF => {
+                        if op_type == SSH_FXP_READ || op_type == SSH_FXP_READDIR {
+                            MY_EOF
+                        } else {
+                            (-1) * libc::EIO
+                        }
+                    }
+                    SSH_FX_FAILURE => {
+                        if op_type == SSH_FXP_RMDIR {
+                            (-1) * libc::ENOTEMPTY
+                        } else {
+                            (-1) * libc::EPERM
+                        }
+                    }
+                    _ => unsafe { (-1) * sftp_error_to_errno(serr) },
                 }
             } else {
-                unsafe {
-                    outbuf.p =
-                        libc::malloc((req.reply.size - req.reply.len) as libc::size_t) as *const u8;
-                    if outbuf.p == (std::ptr::null_mut() as *const u8) {
-                        panic!("sshfs: memory allocation failed");
-                    }
-                    outbuf.len = 0;
-                    outbuf.size = (req.reply.size - req.reply.len) as usize;
-                    if req.reply.len + outbuf.size > req.reply.size {
-                        eprintln!("buffer too short");
-                    } else {
-                        libc::memcpy(
-                            outbuf.p as *mut core::ffi::c_void,
-                            req.reply.p.offset(req.reply.len.try_into().unwrap())
-                                as *const core::ffi::c_void,
-                            outbuf.size,
-                        );
-                        req.reply.len += outbuf.size;
-                    }
-                }
-                0
+                (-1) * libc::EIO
             }
+        } else {
+            unsafe {
+                outbuf.p =
+                    libc::malloc((req.reply.size - req.reply.len) as libc::size_t) as *const u8;
+                if outbuf.p == (std::ptr::null_mut() as *const u8) {
+                    panic!("sshfs: memory allocation failed");
+                }
+                outbuf.len = 0;
+                outbuf.size = (req.reply.size - req.reply.len) as usize;
+                if req.reply.len + outbuf.size > req.reply.size {
+                    eprintln!("buffer too short");
+                } else {
+                    libc::memcpy(
+                        outbuf.p as *mut core::ffi::c_void,
+                        req.reply.p.offset(req.reply.len.try_into().unwrap())
+                            as *const core::ffi::c_void,
+                        outbuf.size,
+                    );
+                    req.reply.len += outbuf.size;
+                }
+            }
+            0
         }
     };
     unsafe {
@@ -510,7 +508,7 @@ pub extern "C" fn sftp_request_wait(
 #[no_mangle]
 pub extern "C" fn sshfs_opendir(
     path: *const core::ffi::c_char,
-    mut fi: &mut fuse_file_info,
+    fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
