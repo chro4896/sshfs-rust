@@ -193,7 +193,7 @@ struct sshfs {
     passive: core::ffi::c_int,
     host: *mut core::ffi::c_char,
     base_path: *mut core::ffi::c_char,
-    reqtab: *mut HashMap<u32, *mut Request>,
+    reqtab: *mut std::collections::HashMap<u32, *mut Request>,
     conntab: *mut core::ffi::c_void,
     lock: libc::pthread_mutex_t,
     lock_ptr: *mut libc::pthread_mutex_t,
@@ -325,7 +325,7 @@ pub struct Request {
     reply: Buffer_sys,
     start: libc::timeval,
     data: *mut core::ffi::c_void,
-    end_func: Option(RequestFunc),
+    end_func: Option<RequestFunc>,
     len: usize,
     list: List_head,
     conn: *mut core::ffi::c_void,
@@ -338,8 +338,8 @@ struct List_head {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, *mut Request> {
-	Box::into_raw(Box::new(HashMap<u32, *mut Request>::new()))
+pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
+	Box::into_raw(Box::new(std::collections::HashMap<u32, *mut Request>::new()))
 }
 
 #[no_mangle]
