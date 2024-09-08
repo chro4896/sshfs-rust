@@ -568,6 +568,7 @@ void *req_table_new();
 struct request *req_table_lookup(uint32_t id);
 int req_table_lookup(uint32_t id);
 void req_table_insert(uint32_t id, struct request *req);
+void req_table_foreach_remove(void *cfunc, struct conn *conn);
 
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
@@ -1505,13 +1506,10 @@ static void chunk_put_locked(struct read_chunk *chunk)
 	pthread_mutex_unlock(&sshfs.lock);
 }
 
-static int clean_req(void *key, struct request *req, gpointer user_data)
+int clean_req(struct request *req, struct conn *conn)
 {
-	(void) key;
-	struct conn* conn = (struct conn*) user_data;
-
 	if (req->conn != conn)
-		return FALSE;
+		return 0;
 
 	req->error = -EIO;
 	if (req->want_reply)
@@ -1519,7 +1517,7 @@ static int clean_req(void *key, struct request *req, gpointer user_data)
 	else
 		request_free(req);
 
-	return TRUE;
+	return 1;
 }
 
 static int process_one_request(struct conn *conn)
@@ -1619,7 +1617,7 @@ static void *process_requests(void *data_)
 	pthread_mutex_lock(&sshfs.lock);
 	conn->processing_thread_started = 0;
 	close_conn(conn);
-	g_hash_table_foreach_remove(sshfs.reqtab, (GHRFunc) clean_req, conn);
+	req_table_foreach_remove(clean_req, conn);
 	conn->connver = ++sshfs.connvers;
 	sshfs.outstanding_len = 0;
 	pthread_cond_broadcast(&sshfs.outstanding_cond);
