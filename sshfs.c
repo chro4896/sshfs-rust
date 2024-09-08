@@ -565,7 +565,8 @@ static struct fuse_opt workaround_opts[] = {
 };
 
 void *req_table_new();
-struct request *req_table_lookup(uint32_t);
+struct request *req_table_lookup(uint32_t id);
+int req_table_lookup(uint32_t id);
 
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
@@ -1548,7 +1549,7 @@ static int process_one_request(struct conn *conn)
 		    sshfs.outstanding_len <= sshfs.max_outstanding_len) {
 			pthread_cond_broadcast(&sshfs.outstanding_cond);
 		}
-		g_hash_table_remove(sshfs.reqtab, GUINT_TO_POINTER(id));
+		req_table_remove(id);
 	}
 	pthread_mutex_unlock(&sshfs.lock);
 	if (req != NULL) {
@@ -2018,10 +2019,10 @@ static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 
 	err = -EIO;
 	if (sftp_send_iov(conn, type, id, iov, count) == -1) {
-		gboolean rmed;
+		int rmed;
 
 		pthread_mutex_lock(&sshfs.lock);
-		rmed = g_hash_table_remove(sshfs.reqtab, GUINT_TO_POINTER(id));
+		rmed = req_table_remove(id);
 		pthread_mutex_unlock(&sshfs.lock);
 
 		if (!rmed && !want_reply) {
@@ -2181,7 +2182,7 @@ static int sftp_readdir_send(struct conn *conn, struct request **req,
 
 static int sshfs_req_pending(struct request *req)
 {
-	if (g_hash_table_lookup(sshfs.reqtab, GUINT_TO_POINTER(req->id)))
+	if (req_table_lookup(req->id))
 		return 1;
 	else
 		return 0;

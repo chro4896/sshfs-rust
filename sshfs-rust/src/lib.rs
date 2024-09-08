@@ -193,7 +193,7 @@ struct sshfs {
     passive: core::ffi::c_int,
     host: *mut core::ffi::c_char,
     base_path: *mut core::ffi::c_char,
-    reqtab: *mut HashMap<u32, Request>,
+    reqtab: *mut HashMap<u32, *mut Request>,
     conntab: *mut core::ffi::c_void,
     lock: libc::pthread_mutex_t,
     lock_ptr: *mut libc::pthread_mutex_t,
@@ -338,15 +338,28 @@ struct List_head {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, Request> {
-	Box::into_raw(Box::new(HashMap<u32, Request>::new()))
+pub unsafe extern "C" fn req_table_new() -> *mut HashMap<u32, *mut Request> {
+	Box::into_raw(Box::new(HashMap<u32, *mut Request>::new()))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn req_table_lookup(key: u32) -> Option<&Request> {
+pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
 	let sshfs_ref = retrieve_sshfs().unwrap();
 	let reqtab = &(*sshfs_ref.reqtab);
-	reqtab.get(key)
+	match reqtab.get(key) {
+		Some(req) => req,
+		None => std::ptr::null_mut() as *mut Request,
+	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
+	let sshfs_ref = retrieve_sshfs().unwrap();
+	let reqtab = &(*sshfs_ref.reqtab);
+	match reqtab.get(key) {
+		Some(_) => 1,
+		None => 0,
+	}
 }
 
 extern "C" {
