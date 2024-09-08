@@ -384,6 +384,7 @@ pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::
 	if (mask & libc::X_OK) == 0 {
 		0
 	} else {
+		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
 		let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
 		let err = unsafe { sshfs_getattr(path, stbuf, std::ptr::null_mut()) };
 		let ret = unsafe {
