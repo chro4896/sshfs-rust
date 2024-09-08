@@ -1972,14 +1972,8 @@ static void *sshfs_init(struct fuse_conn_info *conn,
 	return NULL;
 }
 
-int sftp_request_wait_rust(struct request *req, uint8_t type,
-                             uint8_t expect_type, struct buffer *outbuf, struct request *req_orig);
-
-static int sftp_request_wait(struct request *req, uint8_t type,
-                             uint8_t expect_type, struct buffer *outbuf)
-{
-	return sftp_request_wait_rust(req, type, expect_type, outbuf, req);
-}
+int sftp_request_wait(struct request *req, uint8_t type,
+                             uint8_t expect_type, struct buffer *outbuf);
 
 static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 			     size_t count, request_func begin_func, request_func end_func,
