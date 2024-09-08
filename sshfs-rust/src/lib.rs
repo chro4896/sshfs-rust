@@ -378,10 +378,14 @@ type ClearReqFunc = extern "C" fn(
 pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn) {
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
 	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
+	let mut del_list = Vec::new();
 	for (key, val) in reqtab.iter() {
 		if cfunc(val.clone(), conn) != 0 {
-			reqtab.remove(key);
+			del_list.push(key);
 		}
+	}
+	for key in del_list {
+		reqtab.remove(&key);
 	}
 }
 
