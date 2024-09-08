@@ -346,6 +346,11 @@ extern "C" {
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
+    fn sftp_get_id() -> u32;
+    fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
+    fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
+    fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
+    fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut core::ffi::c_void, count: usize) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
