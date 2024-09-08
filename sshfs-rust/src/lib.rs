@@ -395,7 +395,7 @@ pub extern "C" fn sshfs_access(
         let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
         let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
-        let err = unsafe { (*(sshfs_ref.op)).getattr(path, stbuf, std::ptr::null_mut()) };
+        let err = unsafe { ((*(sshfs_ref.op)).getattr.unwrap())(path, stbuf, std::ptr::null_mut()) };
         let ret = unsafe {
             let stbuf = *stbuf;
             if err == 0 {
@@ -423,7 +423,7 @@ pub extern "C" fn sftp_request_wait(
     outbuf: &mut Buffer_sys,
 ) -> core::ffi::c_int {
     let req_orig = req;
-    let req = &(*req);
+    let req = unsafe { &mut (*req) };
     let err = if req.error != 0 {
         req.error
     } else {
