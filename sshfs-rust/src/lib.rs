@@ -310,6 +310,10 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
+type RequestFunc = extern "C" fn(
+    *mut Request
+);
+
 #[repr(C)]
 pub struct Request {
     want_reply: core::ffi::c_uint,
@@ -321,7 +325,7 @@ pub struct Request {
     reply: Buffer_sys,
     start: libc::timeval,
     data: *mut core::ffi::c_void,
-    end_func: *mut core::ffi::c_void,
+    end_func: Option(RequestFunc),
     len: usize,
     list: List_head,
     conn: *mut core::ffi::c_void,
