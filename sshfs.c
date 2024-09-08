@@ -567,6 +567,7 @@ static struct fuse_opt workaround_opts[] = {
 void *req_table_new();
 struct request *req_table_lookup(uint32_t id);
 int req_table_lookup(uint32_t id);
+void req_table_insert(uint32_t id, struct request *req);
 
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
@@ -2008,7 +2009,7 @@ static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 	while (sshfs.outstanding_len > sshfs.max_outstanding_len)
 		pthread_cond_wait(&sshfs.outstanding_cond, &sshfs.lock);
 
-	g_hash_table_insert(sshfs.reqtab, GUINT_TO_POINTER(id), req);
+	req_table_insert(id, req);
 	if (sshfs.debug) {
 		gettimeofday(&req->start, NULL);
 		sshfs.num_sent++;
