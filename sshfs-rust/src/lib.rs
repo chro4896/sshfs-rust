@@ -319,6 +319,18 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: *mut core::ffi::c_void, end_func: *mut core::ffi::c_void, want_reply: core::ffi::c_int, data: core::ffi::c_void, reqp: *mut *mut Request) {
+	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
+	(*req).want_reply = want_reply;
+	(*req).end_func = end_func;
+	(*req).data = data;
+	if want_reply != 0 {
+		*reqp = req;
+	}
+	0
+}
+
+#[no_mangle]
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);

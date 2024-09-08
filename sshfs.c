@@ -1978,75 +1978,12 @@ int sftp_request_wait_rust(struct request *req, uint8_t type,
 static int sftp_request_wait(struct request *req, uint8_t type,
                              uint8_t expect_type, struct buffer *outbuf)
 {
-	return sftp_request_wait_rust(req, type, expect_type, outbuf, req);
+	return sftp_request_wait_rust(req, type, expect_ty pe, outbuf, req);
 }
 
-static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
+int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 			     size_t count, request_func begin_func, request_func end_func,
-			     int want_reply, void *data, struct request **reqp)
-{
-	int err;
-	uint32_t id;
-	struct request *req = g_new0(struct request, 1);
-
-	req->want_reply = want_reply;
-	req->end_func = end_func;
-	req->data = data;
-	sem_init(&req->ready, 0, 0);
-	buf_init(&req->reply, 0);
-	pthread_mutex_lock(&sshfs.lock);
-	if (begin_func)
-		begin_func(req);
-	id = sftp_get_id();
-	req->id = id;
-	req->conn = conn;
-	req->conn->req_count++;
-	err = start_processing_thread(conn);
-	if (err) {
-		pthread_mutex_unlock(&sshfs.lock);
-		goto out;
-	}
-	req->len = iov_length(iov, count) + 9;
-	sshfs.outstanding_len += req->len;
-	while (sshfs.outstanding_len > sshfs.max_outstanding_len)
-		pthread_cond_wait(&sshfs.outstanding_cond, &sshfs.lock);
-
-	g_hash_table_insert(sshfs.reqtab, GUINT_TO_POINTER(id), req);
-	if (sshfs.debug) {
-		gettimeofday(&req->start, NULL);
-		sshfs.num_sent++;
-		sshfs.bytes_sent += req->len;
-	}
-	DEBUG("[%05i] %s\n", id, type_name(type));
-	pthread_mutex_unlock(&sshfs.lock);
-
-	err = -EIO;
-	if (sftp_send_iov(conn, type, id, iov, count) == -1) {
-		gboolean rmed;
-
-		pthread_mutex_lock(&sshfs.lock);
-		rmed = g_hash_table_remove(sshfs.reqtab, GUINT_TO_POINTER(id));
-		pthread_mutex_unlock(&sshfs.lock);
-
-		if (!rmed && !want_reply) {
-			/* request already freed */
-			return err;
-		}
-		goto out;
-	}
-	if (want_reply)
-		*reqp = req;
-	return 0;
-
-out:
-	req->error = err;
-	if (!want_reply)
-		sftp_request_wait(req, type, 0, NULL);
-	else
-		*reqp = req;
-
-	return err;
-}
+			     int want_reply, void *data, struct request **reqp);
 
 static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
 			    size_t count, uint8_t expect_type, struct buffer *outbuf)
