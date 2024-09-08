@@ -345,11 +345,6 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
-    fn sshfs_getattr(
-        path: *const core::ffi::c_char,
-        stbuf: *mut libc::stat,
-        fi: *const core::ffi::c_void,
-    ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
@@ -395,7 +390,7 @@ pub extern "C" fn sshfs_access(
         let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
         let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
-        let err = unsafe { ((*(sshfs_ref.op)).getattr.unwrap())(path, stbuf, std::ptr::null_mut()) };
+        let err = unsafe { ((*(sshfs_ref.op)).getattr.unwrap())(path, Some(&mut (*stbuf)), std::ptr::null_mut()) };
         let ret = unsafe {
             let stbuf = *stbuf;
             if err == 0 {
