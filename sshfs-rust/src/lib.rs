@@ -339,15 +339,15 @@ struct List_head {
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
-	Box::into_raw(Box::new(std::collections::HashMap<u32, *mut Request>::new()))
+	Box::into_raw(Box::new(std::collections::HashMap::new()))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
 	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
-	match reqtab.get(key) {
-		Some(req) => req,
+	match reqtab.get(&key) {
+		Some(req) => req.clone(),
 		None => std::ptr::null_mut() as *mut Request,
 	}
 }
@@ -355,8 +355,8 @@ pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
 #[no_mangle]
 pub extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
-	match reqtab.remove(key) {
+	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
+	match reqtab.remove(&key) {
 		Some(_) => 1,
 		None => 0,
 	}
@@ -365,7 +365,7 @@ pub extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
 #[no_mangle]
 pub extern "C" fn req_table_insert(key: u32, val: *mut Request) {
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
+	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
 	reqtab.insert(key, val);
 }
 
@@ -377,9 +377,9 @@ type ClearReqFunc = extern "C" fn(
 #[no_mangle]
 pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn) {
 	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
+	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
 	for (key, val) in reqtab.iter() {
-		if cfunc(val, conn) != 0 {
+		if cfunc(val.clone(), conn) != 0 {
 			reqtab.remove(key);
 		}
 	}
