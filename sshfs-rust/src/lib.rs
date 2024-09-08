@@ -49,10 +49,8 @@ struct List_head {
 
 #[no_mangle]
 pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_type: u8, outbuf: &mut Buffer_sys, req_orig: *mut core::ffi::c_void) -> core::ffi::c_int {
-	let mut err = 0;
-	
-	if req.error != 0 {
-		err = req.error;
+	let err = if req.error != 0 {
+		req.error
 	} else {
 		loop {
 			if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } == 0 {
@@ -60,40 +58,42 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 			}
 		}
 		if req.error != 0 {
-			err = req.error;
+			req.error
 		} else {
-			err = (-1)*libc::EIO;
 			if req.reply_type != expect_type && req.reply_type != SSH_FXP_STATUS {
 				eprintln!("protocol error");
+				(-1)*libc::EIO
 			} else if req.reply_type == SSH_FXP_STATUS {
 				let mut serr: u32 = 0;
 				if unsafe { buf_get_uint32(&mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void, &mut serr as *mut u32) } != -1 {
 					match serr {
 						SSH_FX_OK => {
 							if expect_type == SSH_FXP_STATUS {
-								err = 0;
+								0
 							} else {
-								err = (-1)*libc::EIO;
+								(-1)*libc::EIO
 							}
 						},
 						SSH_FX_EOF => {
 							if op_type == SSH_FXP_READ || op_type == SSH_FXP_READDIR {
-								err = MY_EOF;
+								MY_EOF
 							} else {
-								err = (-1)*libc::EIO;
+								(-1)*libc::EIO
 							}
 						},
 						SSH_FX_FAILURE => {
 							if op_type == SSH_FXP_RMDIR {
-								err = (-1)*libc::ENOTEMPTY;
+								(-1)*libc::ENOTEMPTY
 							} else {
-								err = (-1)*libc::EPERM;
+								(-1)*libc::EPERM
 							}
 						},
 						_ => {
-							err = unsafe { (-1)*sftp_error_to_errno(serr) };
+							unsafe { (-1)*sftp_error_to_errno(serr) }
 						}
 					}
+				} else {
+					(-1)*libc::EIO
 				}
 			} else {
 				unsafe {
@@ -110,10 +110,10 @@ pub extern "C" fn sftp_request_wait_rust(req: &mut Request, op_type: u8, expect_
 						req.reply.len += outbuf.size;
 					}
 				}
-				err = 0;
+				0
 			}
 		}
-	}
+	};
 	unsafe {
 		libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
 		request_free(req_orig);
@@ -127,6 +127,54 @@ struct fuse_args {
     argc: core::ffi::c_int,
     argv: *mut *mut core::ffi::c_char,
     allocated: core::ffi::c_int,
+}
+
+type FuseFillDir = extern "C" fn(*mut core::ffi::c_void, *const core::ffi::c_char, *const core::ffi::c_void, libc::off_t, i32) -> core::ffi::c_int;
+
+#[repr(C)]
+struct fuse_operations {
+	getattr: Option<extern "C" fn(*const core::ffi::c_char, Option<&mut libc::stat>, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	readlink: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_char, usize) -> core::ffi::c_int>,
+	mknod: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t, libc::dev_t) -> core::ffi::c_int>,
+	mkdir: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t) -> core::ffi::c_int>,
+	unlink: Option<extern "C" fn(*const core::ffi::c_char) -> core::ffi::c_int>,
+	rmdir: Option<extern "C" fn(*const core::ffi::c_char) -> core::ffi::c_int>,
+	symlink: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char) -> core::ffi::c_int>,
+	rename: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char, *const core::ffi::c_uint) -> core::ffi::c_int>,
+	link: Option<extern "C" fn(*const core::ffi::c_char, *const core::ffi::c_char) -> core::ffi::c_int>,
+	chmod: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	chown: Option<extern "C" fn(*const core::ffi::c_char, libc::uid_t, libc::gid_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	truncate: Option<extern "C" fn(*const core::ffi::c_char, libc::off_t, *const core::ffi::c_void) -> core::ffi::c_int>,
+	open: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	read: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_char, usize, libc::off_t, *mut core::ffi::c_void) -> core::ffi::c_int>,
+	write: *const core::ffi::c_void,
+	statfs: *const core::ffi::c_void,
+	flush: *const core::ffi::c_void,
+	release: *const core::ffi::c_void,
+	fsync: *const core::ffi::c_void,
+	setxattr: *const core::ffi::c_void,
+	getxattr: *const core::ffi::c_void,
+	listxattr: *const core::ffi::c_void,
+	removexattr: *const core::ffi::c_void,
+	opendir: *const core::ffi::c_void,
+	readdir: Option<extern "C" fn(*const core::ffi::c_char, *mut core::ffi::c_void, FuseFillDir, libc::off_t, *mut core::ffi::c_void, i32) -> core::ffi::c_int>,
+	releasedir: *const core::ffi::c_void,
+	fsyncdir: *const core::ffi::c_void,
+	init: *const core::ffi::c_void,
+	destroy: *const core::ffi::c_void,
+	access: *const core::ffi::c_void,
+	create: *const core::ffi::c_void,
+	lock: *const core::ffi::c_void,
+	utimens: *const core::ffi::c_void,
+	bmap: *const core::ffi::c_void,
+	ioctl: *const core::ffi::c_void,
+	poll: *const core::ffi::c_void,
+	write_buf: *const core::ffi::c_void,
+	read_buf: *const core::ffi::c_void,
+	flock: *const core::ffi::c_void,
+	fallocate: *const core::ffi::c_void,
+	copy_file_range: *const core::ffi::c_void,
+	lseek: *const core::ffi::c_void,
 }
 
 #[repr(C)]
@@ -214,7 +262,7 @@ struct sshfs {
     ext_statvfs: core::ffi::c_int,
     ext_hardlink: core::ffi::c_int,
     ext_fsync: core::ffi::c_int,
-    op: *mut core::ffi::c_void,
+    op: *mut fuse_operations,
     bytes_sent: u64,
     bytes_received: u64,
     num_sent: u64,
@@ -226,7 +274,7 @@ struct sshfs {
 }
 
 #[repr(C)]
-struct Buffer_sys {
+pub struct Buffer_sys {
     p: *const u8,
     len: usize,
     size: usize,
@@ -239,7 +287,7 @@ struct Buffer {
 
 impl Buffer {
     fn new(size: usize) -> Self {
-        let p = vec![0;size];
+        let p = vec![0; size];
         Buffer { p, len: 0 }
     }
     fn resize(&mut self, len: usize) {
@@ -303,10 +351,7 @@ struct DirHandle {
 }
 
 extern "C" {
-    fn get_conn(
-        sshfs_file: *const core::ffi::c_void,
-        path: *const core::ffi::c_void,
-    ) -> *mut Conn;
+    fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn sftp_request(
         conn: *mut Conn,
         ssh_op_type: u8,
@@ -314,6 +359,7 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
+    fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
 }
 
@@ -346,6 +392,31 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
         real_path.push(b'.');
     }
     real_path
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_access(path: *const core::ffi::c_char, mask: core::ffi::c_int) -> core::ffi::c_int {
+	if (mask & libc::X_OK) == 0 {
+		0
+	} else {
+		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+		let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
+		let err = unsafe { sshfs_getattr(path, stbuf, std::ptr::null_mut()) };
+		let ret = unsafe {
+			let stbuf = *stbuf;
+		    if err == 0 {
+			    0
+		    } else if (stbuf.st_mode & libc::S_IFREG) > 0 && (stbuf.st_mode & (libc::S_IXUSR|libc::S_IXGRP|libc::S_IXOTH)) == 0 {
+			    -(libc::EACCES as core::ffi::c_int)
+		    } else {
+			    err
+		    }
+	    };
+		unsafe {
+		    libc::free(stbuf as *mut core::ffi::c_void);
+	    }
+	    ret
+	}
 }
 
 #[no_mangle]
@@ -404,11 +475,19 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = get_real_path(path);
-	let mut buf = Buffer::new(0);
-	buf.add_str(&path);
-	let buf = unsafe { buf.translate_into_sys() };
-	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, None) }
+    let path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RMDIR,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
 }
 
 #[no_mangle]
