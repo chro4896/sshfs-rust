@@ -5,6 +5,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 現時点で下記の関数をRust に置き換えている。
 
 - sftp_request_wait（部分的）
+- sshfs_access
 - sshfs_opendir
 - sshfs_unlink
 - sshfs_rmdir
