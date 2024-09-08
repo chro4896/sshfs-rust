@@ -801,7 +801,7 @@ static inline int buf_get_uint8(struct buffer *buf, uint8_t *val)
 	return buf_get_mem(buf, val, 1);
 }
 
-static inline int buf_get_uint32(struct buffer *buf, uint32_t *val)
+int buf_get_uint32(struct buffer *buf, uint32_t *val)
 {
 	uint32_t nval;
 	if (buf_get_mem(buf, &nval, 4) == -1)
@@ -1459,7 +1459,7 @@ static int sftp_read(struct conn *conn, uint8_t *type, struct buffer *buf)
 	return res;
 }
 
-static void request_free(struct request *req)
+void request_free(struct request *req)
 {
 	if (req->end_func)
 		req->end_func(req);
@@ -1751,7 +1751,7 @@ out:
 	return res;
 }
 
-static int sftp_error_to_errno(uint32_t error)
+int sftp_error_to_errno(uint32_t error)
 {
 	switch (error) {
 	case SSH_FX_OK:                return 0;
@@ -1972,67 +1972,13 @@ static void *sshfs_init(struct fuse_conn_info *conn,
 	return NULL;
 }
 
+int sftp_request_wait_rust(struct request *req, uint8_t type,
+                             uint8_t expect_type, struct buffer *outbuf, struct request *req_orig);
+
 static int sftp_request_wait(struct request *req, uint8_t type,
                              uint8_t expect_type, struct buffer *outbuf)
 {
-	int err;
-
-	if (req->error) {
-		err = req->error;
-		goto out;
-	}
-	while (sem_wait(&req->ready));
-	if (req->error) {
-		err = req->error;
-		goto out;
-	}
-	err = -EIO;
-	if (req->reply_type != expect_type &&
-	    req->reply_type != SSH_FXP_STATUS) {
-		fprintf(stderr, "protocol error\n");
-		goto out;
-	}
-	if (req->reply_type == SSH_FXP_STATUS) {
-		uint32_t serr;
-		if (buf_get_uint32(&req->reply, &serr) == -1)
-			goto out;
-
-		switch (serr) {
-		case SSH_FX_OK:
-			if (expect_type == SSH_FXP_STATUS)
-				err = 0;
-			else
-				err = -EIO;
-			break;
-
-		case SSH_FX_EOF:
-			if (type == SSH_FXP_READ || type == SSH_FXP_READDIR)
-				err = MY_EOF;
-			else
-				err = -EIO;
-			break;
-
-		case SSH_FX_FAILURE:
-			if (type == SSH_FXP_RMDIR)
-				err = -ENOTEMPTY;
-			else
-				err = -EPERM;
-			break;
-
-		default:
-			err = -sftp_error_to_errno(serr);
-		}
-	} else {
-		buf_init(outbuf, req->reply.size - req->reply.len);
-		buf_get_mem(&req->reply, outbuf->p, outbuf->size);
-		err = 0;
-	}
-
-out:
-	pthread_mutex_lock(&sshfs.lock);
-	request_free(req);
-	pthread_mutex_unlock(&sshfs.lock);
-	return err;
+	return sftp_request_wait_rust(req, type, expect_type, outbuf, req);
 }
 
 static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
@@ -2125,21 +2071,7 @@ int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
 	return sftp_request_iov(conn, type, &iov, 1, expect_type, outbuf);
 }
 
-static int sshfs_access(const char *path, int mask)
-{
-	struct stat stbuf;
-	int err = 0;
-
-	if (mask & X_OK) {
-		err = sshfs.op->getattr(path, &stbuf, NULL);
-		if (!err) {
-			if (S_ISREG(stbuf.st_mode) &&
-			    !(stbuf.st_mode & (S_IXUSR|S_IXGRP|S_IXOTH)))
-				err = -EACCES;
-		}
-	}
-	return err;
-}
+int sshfs_access(const char *path, int mask);
 
 static int count_components(const char *p)
 {
@@ -2356,34 +2288,7 @@ static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 	return err;
 }
 
-static int sshfs_opendir(const char *path, struct fuse_file_info *fi)
-{
-	int err;
-	struct conn *conn;
-	struct buffer buf;
-	struct dir_handle *handle;
-
-	handle = g_new0(struct dir_handle, 1);
-	if(handle == NULL)
-		return -ENOMEM;
-
-	// Commutes with pending write(), so we can use any connection
-	conn = get_conn(NULL, NULL);
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	err = sftp_request(conn, SSH_FXP_OPENDIR, &buf, SSH_FXP_HANDLE, &handle->buf);
-	if (!err) {
-		buf_finish(&handle->buf);
-		pthread_mutex_lock(&sshfs.lock);
-		handle->conn = conn;
-		handle->conn->dir_count++;
-		pthread_mutex_unlock(&sshfs.lock);
-		fi->fh = (unsigned long) handle;
-	} else
-		g_free(handle);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi,
@@ -2498,18 +2403,7 @@ int sshfs_unlink(const char *path);
 
 int sshfs_rmdir(const char *path);
 
-static int sshfs_do_rename(const char *from, const char *to)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, from);
-	buf_add_path(&buf, to);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_RENAME, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_do_rename(const char *from, const char *to);
 
 static int sshfs_ext_posix_rename(const char *from, const char *to)
 {
@@ -3390,7 +3284,7 @@ static int sshfs_truncate(const char *path, off_t size,
 	return err;
 }
 
-static int sshfs_getattr(const char *path, struct stat *stbuf,
+int sshfs_getattr(const char *path, struct stat *stbuf,
 			 struct fuse_file_info *fi)
 {
 	int err;
