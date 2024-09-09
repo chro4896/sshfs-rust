@@ -442,18 +442,6 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: *mut core::ffi::c_void, end_func: *mut core::ffi::c_void, want_reply: core::ffi::c_int, data: core::ffi::c_void, reqp: *mut *mut Request) {
-	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
-	(*req).want_reply = want_reply;
-	(*req).end_func = end_func;
-	(*req).data = data;
-	if want_reply != 0 {
-		*reqp = req;
-	}
-	0
-}
-
-#[no_mangle]
 pub extern "C" fn sshfs_access(
     path: *const core::ffi::c_char,
     mask: core::ffi::c_int,
@@ -566,8 +554,37 @@ pub unsafe extern "C" fn sftp_request_wait(
     };
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     request_free(req_orig);
-		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     err
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_int, data: core::ffi::c_void, reqp: *mut *mut Request) {
+	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
+	(*req).want_reply = want_reply;
+	(*req).end_func = end_func;
+	(*req).data = data;
+	libc::sem_init(&((*req).ready) as *mut libc::sem_t);
+	(*req).reply.p = std::ptr::null() as *const u8;
+	(*req).reply.len = 0;
+	(*req).reply.size = 0;
+    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+    if let Some(func) = begin_func {
+		func(req);
+	}
+	let id = sftp_get_id();
+	(*req).id = id;
+	(*req).conn = conn.clone();
+	(*((*req).conn)).req_count += 1;
+	let mut err = start_processing_thread(conn);
+	if err != 0 {
+		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	} else {
+	    if want_reply != 0 {
+		    *reqp = req;
+	    }
+	}
+	err
 }
 
 #[no_mangle]
@@ -608,7 +625,6 @@ pub extern "C" fn sshfs_opendir(
         }
     }
     err
->>>>>>> refactoring-for-rust
 }
 
 #[no_mangle]
