@@ -2205,7 +2205,7 @@ static int sshfs_req_pending(struct request *req)
 		return 0;
 }
 
-static int sftp_readdir_async(struct conn *conn, struct buffer *handle,
+int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 			      void *buf, off_t offset, fuse_fill_dir_t filler)
 {
 	int err = 0;
@@ -2283,7 +2283,7 @@ static int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 	return err;
 }
 
-static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
+int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 			     void *buf, off_t offset, fuse_fill_dir_t filler)
 {
 	int err;
