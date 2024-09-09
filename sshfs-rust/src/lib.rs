@@ -388,12 +388,12 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *mut core::ffi:c_void, filler: *mut core::ffi::c_void, offset: libc::off_t, fi: &mut fuse_file_info, _flag: i32) -> core::ffi::c_int {
+pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void, offset: libc::off_t, fi: &mut fuse_file_info, _flag: i32) -> core::ffi::c_int {
 	let handle = fi.fh as *mut DirHandle;
 	if retrieve_sshfs().unwrap().sync_readdir != 0 {
-		sftp_readdir_sync((*handle).conn, (*handle).buf, dbuf, offset, filler)
+		sftp_readdir_sync((*handle).conn, &(*handle).buf, dbuf, offset, filler)
 	} else {
-		sftp_readdir_async((*handle).conn, (*handle).buf, dbuf, offset, filler)
+		sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
 	}
 }
 
