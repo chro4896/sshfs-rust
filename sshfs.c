@@ -2304,25 +2304,9 @@ static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 
 int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
-static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
+int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi,
-			 enum fuse_readdir_flags flags)
-{
-	(void) path; (void) flags;
-	int err;
-	struct dir_handle *handle;
-
-	handle = (struct dir_handle*) fi->fh;
-
-	if (sshfs.sync_readdir)
-		err = sftp_readdir_sync(handle->conn, &handle->buf, dbuf,
-					offset, filler);
-	else
-		err = sftp_readdir_async(handle->conn, &handle->buf, dbuf,
-					 offset, filler);
-
-	return err;
-}
+			 enum fuse_readdir_flags flags);
 
 static int sshfs_releasedir(const char *path, struct fuse_file_info *fi)
 {
