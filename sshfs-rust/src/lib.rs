@@ -629,8 +629,8 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
             SSH_FXP_STATUS,
             None,
         )
-    }
-    if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK) } == 0 {
+    };
+    if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK.try_into().unwrap()) } == 0 {
 		-libc::EEXIST
 	} else {
 		err
