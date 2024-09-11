@@ -469,6 +469,30 @@ pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *m
 }
 
 #[no_mangle]
+pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t) -> core::ffi::c_int {
+    let real_path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&real_path);
+	buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
+	buf.add_u32(mode as u32);
+    let buf = unsafe { buf.translate_into_sys() };
+    let err = unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_MKDIR,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
+    if err == -libc::EPERM && unsafe { (*(retrieve_sshfs().unwrap().op)).access(path, libc::R_OK) } == 0 {
+		-libc::EEXIST
+	} else {
+		err
+	}
+}
+
+#[no_mangle]
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
