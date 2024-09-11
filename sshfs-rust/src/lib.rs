@@ -125,7 +125,7 @@ struct fuse_operations {
     fsyncdir: *const core::ffi::c_void,
     init: *const core::ffi::c_void,
     destroy: *const core::ffi::c_void,
-    access: *const core::ffi::c_void,
+    access: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t) -> core::ffi::c_int>,
     create: *const core::ffi::c_void,
     lock: *const core::ffi::c_void,
     utimens: *const core::ffi::c_void,
