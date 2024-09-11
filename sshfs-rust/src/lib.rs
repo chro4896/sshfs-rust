@@ -406,16 +406,13 @@ extern "C" {
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
-<<<<<<< HEAD
     fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
     fn sftp_readdir_async(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
-=======
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
     fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
     fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut core::ffi::c_void, count: usize) -> core::ffi::c_int;
->>>>>>> refactoring-for-rust
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -633,7 +630,7 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
             None,
         )
     }
-    if err == -libc::EPERM && unsafe { (*(retrieve_sshfs().unwrap().op)).access(path, libc::R_OK) } == 0 {
+    if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK) } == 0 {
 		-libc::EEXIST
 	} else {
 		err
