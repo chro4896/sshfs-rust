@@ -361,6 +361,8 @@ extern "C" {
     ) -> core::ffi::c_int;
     fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
+    fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
+    fn sftp_readdir_async(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -454,6 +456,16 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 		}
 	}
 	err
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void, offset: libc::off_t, fi: &mut fuse_file_info, _flag: i32) -> core::ffi::c_int {
+	let handle = fi.fh as *mut DirHandle;
+	if retrieve_sshfs().unwrap().sync_readdir != 0 {
+		sftp_readdir_sync((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+	} else {
+		sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+	}
 }
 
 #[no_mangle]
