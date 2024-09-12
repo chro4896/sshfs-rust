@@ -1,5 +1,6 @@
 use rand::Rng;
 
+const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
@@ -443,8 +444,6 @@ pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fus
 	if err == 0 {
 		unsafe {
     		(*handle).buf.len = (*handle).buf.size;
-		}
-		unsafe {
 		    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
 		    (*((*handle).conn)).dir_count += 1;
 		    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
@@ -466,6 +465,24 @@ pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *m
 	} else {
 		sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
 	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_releasedir(_path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
+	let handle = fi.fh as *mut DirHandle;
+	let err = sftp_request(
+            (*handle).conn,
+            SSH_FXP_CLOSE,
+            &mut (*handle).buf,
+            0,
+            None,
+        );
+	libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+	(*((*handle).conn)).dir_count -= 1;
+	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	libc::free((*handle).buf.p as *mut core::ffi::c_void);
+	libc::free(handle as *mut core::ffi::c_void);
+	err
 }
 
 #[no_mangle]
