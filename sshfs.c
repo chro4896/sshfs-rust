@@ -231,11 +231,6 @@ struct buffer {
 	size_t size;
 };
 
-struct dir_handle {
-	struct buffer buf;
-	struct conn *conn;
-};
-
 struct list_head {
 	struct list_head *prev;
 	struct list_head *next;
@@ -2290,21 +2285,7 @@ int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi,
 			 enum fuse_readdir_flags flags);
 
-static int sshfs_releasedir(const char *path, struct fuse_file_info *fi)
-{
-	(void) path;
-	int err;
-	struct dir_handle *handle;
-
-	handle = (struct dir_handle*) fi->fh;
-	err = sftp_request(handle->conn, SSH_FXP_CLOSE, &handle->buf, 0, NULL);
-	pthread_mutex_lock(&sshfs.lock);
-	handle->conn->dir_count--;
-	pthread_mutex_unlock(&sshfs.lock);
-	buf_free(&handle->buf);
-	g_free(handle);
-	return err;
-}
+int sshfs_releasedir(const char *path, struct fuse_file_info *fi);
 
 
 int sshfs_mkdir(const char *path, mode_t mode);
