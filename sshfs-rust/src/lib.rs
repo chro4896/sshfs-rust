@@ -307,7 +307,6 @@ struct Conn {
     file_count: core::ffi::c_int,
 }
 
-#[repr(C)]
 struct DirHandle {
     buf: Buffer_sys,
     conn: *mut Conn,
