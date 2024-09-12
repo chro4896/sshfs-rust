@@ -619,7 +619,7 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
     let mut buf = Buffer::new(0);
     buf.add_str(&real_path);
 	buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
-	buf.add_u32(mode as u32);
+	buf.add_u32(mode);
     let buf = unsafe { buf.translate_into_sys() };
     let err = unsafe {
         sftp_request(
@@ -630,6 +630,7 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
             None,
         )
     };
+    plintln!("mkdir {}", err);
     if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK.try_into().unwrap()) } == 0 {
 		-libc::EEXIST
 	} else {
