@@ -296,7 +296,7 @@ impl Buffer {
 }
 
 #[repr(C)]
-struct Conn {
+pub struct Conn {
     lock_write: libc::pthread_mutex_t,
     processing_thread_started: core::ffi::c_int,
     rfd: core::ffi::c_int,
@@ -339,7 +339,7 @@ struct List_head {
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
-    Box::into_raw(Box::new(std::collections::HashMap::new()))
+    Box::into_raw(Box::default())
 }
 
 #[no_mangle]
@@ -347,8 +347,8 @@ pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let reqtab = unsafe { &(*sshfs_ref.reqtab) };
     match reqtab.get(&key) {
-        Some(req) => req.clone(),
-        None => std::ptr::null_mut() as *mut Request,
+        Some(req) => *req,
+        None => std::ptr::null_mut(),
     }
 }
 
@@ -377,7 +377,7 @@ pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn)
     let reqtab = unsafe { &(*sshfs_ref.reqtab) };
     let mut del_list = Vec::new();
     for (key, val) in reqtab.iter() {
-        if cfunc(val.clone(), conn) != 0 {
+        if cfunc(*val, conn) != 0 {
             del_list.push(key);
         }
     }
@@ -542,7 +542,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                             -libc::EPERM
                         }
                     }
-                    _ => (-1) * sftp_error_to_errno(serr),
+                    _ => -sftp_error_to_errno(serr),
                 }
             } else {
                 -libc::EIO
@@ -553,7 +553,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                 panic!("sshfs: memory allocation failed");
             }
             outbuf.len = 0;
-            outbuf.size = (req.reply.size - req.reply.len) as usize;
+            outbuf.size = req.reply.size - req.reply.len;
             if req.reply.len + outbuf.size > req.reply.size {
                 eprintln!("buffer too short");
             } else {
@@ -585,11 +585,11 @@ pub extern "C" fn sshfs_opendir(
     let buf = unsafe { buf.translate_into_sys() };
     let mut handle = Box::new(DirHandle {
         buf: Buffer_sys {
-            p: std::ptr::null() as *const u8,
+            p: std::ptr::null(),
             len: 0,
             size: 0,
         },
-        conn: std::ptr::null_mut() as *mut Conn,
+        conn: std::ptr::null_mut(),
     });
     handle.conn = unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) };
     let err = unsafe {
