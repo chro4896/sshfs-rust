@@ -411,6 +411,8 @@ extern "C" {
     fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
     fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut core::ffi::c_void, count: usize) -> core::ffi::c_int;
+    fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
+    fn sftp_readdir_async(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -599,6 +601,34 @@ pub extern "C" fn sshfs_opendir(
         }
     }
     err
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void, offset: libc::off_t, fi: &mut fuse_file_info, _flag: i32) -> core::ffi::c_int {
+	let handle = fi.fh as *mut DirHandle;
+	if retrieve_sshfs().unwrap().sync_readdir != 0 {
+		sftp_readdir_sync((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+	} else {
+		sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_releasedir(_path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
+	let handle = fi.fh as *mut DirHandle;
+	let err = sftp_request(
+            (*handle).conn,
+            SSH_FXP_CLOSE,
+            &mut (*handle).buf,
+            0,
+            None,
+        );
+	libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+	(*((*handle).conn)).dir_count -= 1;
+	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	libc::free((*handle).buf.p as *mut core::ffi::c_void);
+	libc::free(handle as *mut core::ffi::c_void);
+	err
 }
 
 #[no_mangle]

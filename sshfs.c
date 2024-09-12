@@ -2187,7 +2187,7 @@ static int sshfs_req_pending(struct request *req)
 		return 0;
 }
 
-static int sftp_readdir_async(struct conn *conn, struct buffer *handle,
+int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 			      void *buf, off_t offset, fuse_fill_dir_t filler)
 {
 	int err = 0;
@@ -2265,7 +2265,7 @@ static int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 	return err;
 }
 
-static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
+int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 			     void *buf, off_t offset, fuse_fill_dir_t filler)
 {
 	int err;
@@ -2286,41 +2286,11 @@ static int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
 
 int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
-static int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
+int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 			 off_t offset, struct fuse_file_info *fi,
-			 enum fuse_readdir_flags flags)
-{
-	(void) path; (void) flags;
-	int err;
-	struct dir_handle *handle;
+			 enum fuse_readdir_flags flags);
 
-	handle = (struct dir_handle*) fi->fh;
-
-	if (sshfs.sync_readdir)
-		err = sftp_readdir_sync(handle->conn, &handle->buf, dbuf,
-					offset, filler);
-	else
-		err = sftp_readdir_async(handle->conn, &handle->buf, dbuf,
-					 offset, filler);
-
-	return err;
-}
-
-static int sshfs_releasedir(const char *path, struct fuse_file_info *fi)
-{
-	(void) path;
-	int err;
-	struct dir_handle *handle;
-
-	handle = (struct dir_handle*) fi->fh;
-	err = sftp_request(handle->conn, SSH_FXP_CLOSE, &handle->buf, 0, NULL);
-	pthread_mutex_lock(&sshfs.lock);
-	handle->conn->dir_count--;
-	pthread_mutex_unlock(&sshfs.lock);
-	buf_free(&handle->buf);
-	g_free(handle);
-	return err;
-}
+int sshfs_releasedir(const char *path, struct fuse_file_info *fi);
 
 
 static int sshfs_mkdir(const char *path, mode_t mode)
