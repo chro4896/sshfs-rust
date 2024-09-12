@@ -8,6 +8,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 - sshfs_access
 - sshfs_opendir
 - sshfs_readdir（部分的）
+- sshfs_releasedir
 - sshfs_unlink
 - sshfs_rmdir
 - sshfs_do_rename
