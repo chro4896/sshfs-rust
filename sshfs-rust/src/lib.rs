@@ -630,7 +630,7 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
             None,
         )
     };
-    plintln!("mkdir {}", err);
+    println!("mkdir {}", err);
     if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK.try_into().unwrap()) } == 0 {
 		-libc::EEXIST
 	} else {
