@@ -595,13 +595,25 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
 		}
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 		err = -libc::EIO;
-		if {
+		if sftp_send_iov(conn, ssh_type, id, iov, count) == -1{
+            libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+            let rmed = req_table_remove(id);
+            libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+            if rmed == 0 && want_reply == 0 {
+				return err;
+			}
 		} else {
     	    if want_reply != 0 {
 	    	    *reqp = req;
 	        }
 	        return 0;	
 		}
+	}
+	(*req).error = err;
+    if want_reply == 0 {
+		sftp_request_wait(req, ssh_type, 0, std::ptr::null_mut());
+	} else {
+	    *reqp = req;
 	}
 	err
 }
