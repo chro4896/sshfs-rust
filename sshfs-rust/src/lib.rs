@@ -587,6 +587,8 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
     		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
 		}
 		req_table_insert(id, req);
+		if sshfs_obj.debug != 0{
+		}
 	    if want_reply != 0 {
 		    *reqp = req;
 	    }
