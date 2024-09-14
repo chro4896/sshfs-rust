@@ -559,12 +559,12 @@ pub unsafe extern "C" fn sftp_request_wait(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_int, data: core::ffi::c_void, reqp: *mut *mut Request) {
+pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) {
 	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
 	(*req).want_reply = want_reply;
 	(*req).end_func = end_func;
 	(*req).data = data;
-	libc::sem_init(&((*req).ready) as *mut libc::sem_t);
+	libc::sem_init(&mut ((*req).ready) as *mut libc::sem_t, 0, 0);
 	(*req).reply.p = std::ptr::null() as *const u8;
 	(*req).reply.len = 0;
 	(*req).reply.size = 0;
@@ -583,7 +583,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
 		(*req).len = iov_length(iov, count) + 9;
 		let sshfs_obj = retrieve_sshfs().unwrap();
 		sshfs_obj.outstanding_len += (*req).len;
-		while (sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len) {
+		while sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len {
     		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
 		}
 		req_table_insert(id, req);
@@ -591,7 +591,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
 			libc::gettimeofday(&mut (*req).start as *mut libc::timeval, std::ptr::null_mut());
 			sshfs_obj.num_sent += 1;
 			sshfs_obj.bytes_sent += (*req).len;
-			eprintln!("{0:<5} {}", id, CStr::from_ptr(type_name(ssh_type)).to_str().unwrap());
+			eprintln!("{0:<5} {1}", id, core::ffi::CStr::from_ptr(type_name(ssh_type)).to_str().unwrap());
 		}
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 		err = -libc::EIO;
