@@ -587,11 +587,21 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
     		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
 		}
 		req_table_insert(id, req);
-		if sshfs_obj.debug != 0{
+		if sshfs_obj.debug != 0 {
+			libc::gettimeofday(&mut (*req).start as *mut libc::timeval, std::ptr::null_mut());
+			sshfs_obj.num_sent += 1;
+			sshfs_obj.bytes_sent += (*req).len;
+			eprintln!("{0:<5} {}", id, CStr::from_ptr(type_name(ssh_type)).to_str().unwrap());
 		}
-	    if want_reply != 0 {
-		    *reqp = req;
-	    }
+		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+		err = -libc::EIO;
+		if {
+		} else {
+    	    if want_reply != 0 {
+	    	    *reqp = req;
+	        }
+	        return 0;	
+		}
 	}
 	err
 }
