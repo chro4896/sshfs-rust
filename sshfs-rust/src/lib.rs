@@ -580,6 +580,13 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut core::ffi::c_void, ssh_typ
 	if err != 0 {
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
 	} else {
+		(*req).len = iov_length(iov, count) + 9;
+		let sshfs_obj = retrieve_sshfs().unwrap();
+		sshfs_obj.outstanding_len += (*req).len;
+		while (sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len) {
+    		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
+		}
+		req_table_insert(id, req);
 	    if want_reply != 0 {
 		    *reqp = req;
 	    }
