@@ -583,7 +583,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *
 	} else {
 		(*req).len = iov_length(iov, count.try_into().unwrap()) + 9;
 		let sshfs_obj = retrieve_sshfs().unwrap();
-		sshfs_obj.outstanding_len += (*req).len.try_into().unwrap();
+		sshfs_obj.outstanding_len += <usize as TryInto<u32>>::try_into((*req).len).unwrap();
 		while sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len {
     		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
 		}
