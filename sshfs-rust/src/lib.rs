@@ -402,7 +402,7 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
-    fn retrieve_sshfs() -> Option<&'static sshfs>;
+    fn retrieve_sshfs() -> Option<&mut 'static sshfs>;
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
     fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
