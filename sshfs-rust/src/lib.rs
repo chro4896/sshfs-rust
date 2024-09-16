@@ -401,8 +401,6 @@ extern "C" {
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
     fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
-    fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
-    fn sftp_readdir_async(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
