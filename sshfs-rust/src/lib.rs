@@ -5,16 +5,20 @@ const SSH_FXP_READ: u8 = 5;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
+const SSH_FXP_MKDIR: u8 = 14;
 const SSH_FXP_RMDIR: u8 = 15;
 const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
 const SSH_FXP_HANDLE: u8 = 102;
 const SSH_FXP_EXTENDED: u8 = 200;
 
+const SSH_FILEXFER_ATTR_PERMISSIONS: u32 = 4;
+
 const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
 
+const SFTP_EXT_POSIX_RENAME: &str = "posix-rename@openssh.com";
 const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
 
 const MY_EOF: core::ffi::c_int = 1;
@@ -122,7 +126,7 @@ struct fuse_operations {
     fsyncdir: *const core::ffi::c_void,
     init: *const core::ffi::c_void,
     destroy: *const core::ffi::c_void,
-    access: *const core::ffi::c_void,
+    access: Option<extern "C" fn(*const core::ffi::c_char, libc::mode_t) -> core::ffi::c_int>,
     create: *const core::ffi::c_void,
     lock: *const core::ffi::c_void,
     utimens: *const core::ffi::c_void,
@@ -293,7 +297,7 @@ impl Buffer {
 }
 
 #[repr(C)]
-struct Conn {
+pub struct Conn {
     lock_write: libc::pthread_mutex_t,
     processing_thread_started: core::ffi::c_int,
     rfd: core::ffi::c_int,
@@ -304,15 +308,12 @@ struct Conn {
     file_count: core::ffi::c_int,
 }
 
-#[repr(C)]
 struct DirHandle {
     buf: Buffer_sys,
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(
-    *mut Request
-);
+type RequestFunc = extern "C" fn(*mut Request);
 
 #[repr(C)]
 pub struct Request {
@@ -339,55 +340,52 @@ struct List_head {
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
-	Box::into_raw(Box::new(std::collections::HashMap::new()))
+    Box::into_raw(Box::default())
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn req_table_lookup(key: u32) -> *mut Request {
-	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
-	match reqtab.get(&key) {
-		Some(req) => req.clone(),
-		None => std::ptr::null_mut() as *mut Request,
-	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let reqtab = unsafe { &(*sshfs_ref.reqtab) };
+    match reqtab.get(&key) {
+        Some(req) => *req,
+        None => std::ptr::null_mut(),
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn req_table_remove(key: u32) -> core::ffi::c_int {
-	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
-	match reqtab.remove(&key) {
-		Some(_) => 1,
-		None => 0,
-	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
+    match reqtab.remove(&key) {
+        Some(_) => 1,
+        None => 0,
+    }
 }
 
 #[no_mangle]
 pub extern "C" fn req_table_insert(key: u32, val: *mut Request) {
-	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
-	reqtab.insert(key, val);
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
+    reqtab.insert(key, val);
 }
 
-type ClearReqFunc = extern "C" fn(
-    *mut Request,
-    *mut Conn,
-) -> core::ffi::c_int;
+type ClearReqFunc = extern "C" fn(*mut Request, *mut Conn) -> core::ffi::c_int;
 
 #[no_mangle]
 pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn) {
-	let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-	let reqtab = unsafe { &(*sshfs_ref.reqtab) };
-	let mut del_list = Vec::new();
-	for (key, val) in reqtab.iter() {
-		if cfunc(val.clone(), conn) != 0 {
-			del_list.push(key);
-		}
-	}
-	let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
-	for key in del_list {
-		reqtab.remove(key);
-	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let reqtab = unsafe { &(*sshfs_ref.reqtab) };
+    let mut del_list = Vec::new();
+    for (key, val) in reqtab.iter() {
+        if cfunc(*val, conn) != 0 {
+            del_list.push(key);
+        }
+    }
+    let reqtab = unsafe { &mut (*sshfs_ref.reqtab) };
+    for key in del_list {
+        reqtab.remove(key);
+    }
 }
 
 extern "C" {
@@ -410,7 +408,27 @@ extern "C" {
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
     fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
-    fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut core::ffi::c_void, count: usize) -> core::ffi::c_int;
+    fn sftp_send_iov(
+        conn: *mut Conn,
+        ssh_type: u8,
+        id: u32,
+        iov: *mut core::ffi::c_void,
+        count: usize,
+    ) -> core::ffi::c_int;
+    fn sftp_readdir_sync(
+        conn: *mut Conn,
+        handle: &Buffer_sys,
+        buf: *mut core::ffi::c_void,
+        offset: libc::off_t,
+        filler: *mut core::ffi::c_void,
+    ) -> core::ffi::c_int;
+    fn sftp_readdir_async(
+        conn: *mut Conn,
+        handle: &Buffer_sys,
+        buf: *mut core::ffi::c_void,
+        offset: libc::off_t,
+        filler: *mut core::ffi::c_void,
+    ) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -455,7 +473,9 @@ pub extern "C" fn sshfs_access(
         let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
         let stbuf = unsafe { libc::malloc(std::mem::size_of::<libc::stat>()) } as *mut libc::stat;
-        let err = unsafe { ((*(sshfs_ref.op)).getattr.unwrap())(path, Some(&mut (*stbuf)), std::ptr::null_mut()) };
+        let err = unsafe {
+            ((*(sshfs_ref.op)).getattr.unwrap())(path, Some(&mut (*stbuf)), std::ptr::null_mut())
+        };
         let ret = unsafe {
             let stbuf = *stbuf;
             if err == 0 {
@@ -499,12 +519,10 @@ pub unsafe extern "C" fn sftp_request_wait(
             -libc::EIO
         } else if req.reply_type == SSH_FXP_STATUS {
             let mut serr: u32 = 0;
-            if 
-                buf_get_uint32(
-                    &mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void,
-                    &mut serr as *mut u32,
-                )
-            != -1
+            if buf_get_uint32(
+                &mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void,
+                &mut serr as *mut u32,
+            ) != -1
             {
                 match serr {
                     SSH_FX_OK => {
@@ -528,7 +546,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                             -libc::EPERM
                         }
                     }
-                    _ => (-1) * sftp_error_to_errno(serr),
+                    _ => -sftp_error_to_errno(serr),
                 }
             } else {
                 -libc::EIO
@@ -541,7 +559,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                 panic!("sshfs: memory allocation failed");
             }
             outbuf.len = 0;
-            outbuf.size = (req.reply.size - req.reply.len) as usize;
+            outbuf.size = req.reply.size - req.reply.len;
             if req.reply.len + outbuf.size > req.reply.size {
                 eprintln!("buffer too short");
             } else {
@@ -631,63 +649,89 @@ pub extern "C" fn sshfs_opendir(
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
     let buf = unsafe { buf.translate_into_sys() };
-    let handle = unsafe { libc::calloc(1, std::mem::size_of::<DirHandle>()) } as *mut DirHandle;
-    unsafe {
-        (*handle).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
-    }
+    let mut handle = Box::new(DirHandle {
+        buf: Buffer_sys {
+            p: std::ptr::null(),
+            len: 0,
+            size: 0,
+        },
+        conn: std::ptr::null_mut(),
+    });
+    handle.conn = unsafe { get_conn(std::ptr::null_mut(), std::ptr::null_mut()) };
     let err = unsafe {
         sftp_request(
-            (*handle).conn,
+            handle.conn,
             SSH_FXP_OPENDIR,
             &buf,
             SSH_FXP_HANDLE,
-            Some(&mut (*handle).buf),
+            Some(&mut handle.buf),
         )
     };
     if err == 0 {
-        unsafe {
-            (*handle).buf.len = (*handle).buf.size;
-        }
+        handle.buf.len = handle.buf.size;
         unsafe {
             libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
-            (*((*handle).conn)).dir_count += 1;
+            (*(handle.conn)).dir_count += 1;
             libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
         }
-        fi.fh = handle as u64;
-    } else {
-        unsafe {
-            libc::free(handle as *mut core::ffi::c_void);
-        }
+        fi.fh = Box::into_raw(handle) as u64;
     }
     err
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sshfs_readdir(_path: *const core::ffi::c_char, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void, offset: libc::off_t, fi: &mut fuse_file_info, _flag: i32) -> core::ffi::c_int {
-	let handle = fi.fh as *mut DirHandle;
-	if retrieve_sshfs().unwrap().sync_readdir != 0 {
-		sftp_readdir_sync((*handle).conn, &(*handle).buf, dbuf, offset, filler)
-	} else {
-		sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
-	}
+pub unsafe extern "C" fn sshfs_readdir(
+    _path: *const core::ffi::c_char,
+    dbuf: *mut core::ffi::c_void,
+    filler: *mut core::ffi::c_void,
+    offset: libc::off_t,
+    fi: &mut fuse_file_info,
+    _flag: i32,
+) -> core::ffi::c_int {
+    let handle = fi.fh as *mut DirHandle;
+    if retrieve_sshfs().unwrap().sync_readdir != 0 {
+        sftp_readdir_sync((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+    } else {
+        sftp_readdir_async((*handle).conn, &(*handle).buf, dbuf, offset, filler)
+    }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sshfs_releasedir(_path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
-	let handle = fi.fh as *mut DirHandle;
-	let err = sftp_request(
-            (*handle).conn,
-            SSH_FXP_CLOSE,
-            &mut (*handle).buf,
-            0,
+pub unsafe extern "C" fn sshfs_releasedir(
+    _path: *const core::ffi::c_char,
+    fi: &mut fuse_file_info,
+) -> core::ffi::c_int {
+    let mut handle = Box::from_raw(fi.fh as *mut DirHandle);
+    let err = sftp_request(handle.conn, SSH_FXP_CLOSE, &mut handle.buf, 0, None);
+    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+    (*(handle.conn)).dir_count -= 1;
+    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    libc::free(handle.buf.p as *mut core::ffi::c_void);
+    err
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t) -> core::ffi::c_int {
+    let real_path = get_real_path(path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&real_path);
+	buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
+	buf.add_u32(mode);
+    let buf = unsafe { buf.translate_into_sys() };
+    let err = unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_MKDIR,
+            &buf,
+            SSH_FXP_STATUS,
             None,
-        );
-	libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
-	(*((*handle).conn)).dir_count -= 1;
-	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
-	libc::free((*handle).buf.p as *mut core::ffi::c_void);
-	libc::free(handle as *mut core::ffi::c_void);
-	err
+        )
+    };
+    if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK.try_into().unwrap()) } == 0 {
+		-libc::EEXIST
+	} else {
+		err
+	}
 }
 
 #[no_mangle]
