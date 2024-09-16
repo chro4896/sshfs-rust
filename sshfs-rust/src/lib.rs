@@ -477,7 +477,7 @@ pub unsafe extern "C" fn sftp_request_wait(
     req: *mut Request,
     op_type: u8,
     expect_type: u8,
-    outbuf: &mut Buffer_sys,
+    outbuf: Option<&mut Buffer_sys>,
 ) -> core::ffi::c_int {
     let req_orig = req;
     let req = &mut (*req);
@@ -531,6 +531,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                 -libc::EIO
             }
         } else {
+			let outbuf = outbuf.unwrap();
             outbuf.p =
                 libc::malloc(req.reply.size - req.reply.len) as *const u8;
             if outbuf.p == (std::ptr::null_mut() as *const u8) {
@@ -611,7 +612,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *
 	}
 	(*req).error = err;
     if want_reply == 0 {
-		sftp_request_wait(req, ssh_type, 0, std::ptr::null_mut());
+		sftp_request_wait(req, ssh_type, 0, None);
 	} else {
 	    *reqp = req;
 	}
