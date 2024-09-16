@@ -231,11 +231,6 @@ struct buffer {
 	size_t size;
 };
 
-struct dir_handle {
-	struct buffer buf;
-	struct conn *conn;
-};
-
 struct list_head {
 	struct list_head *prev;
 	struct list_head *next;
@@ -2228,27 +2223,7 @@ int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 
 int sshfs_releasedir(const char *path, struct fuse_file_info *fi);
 
-
-static int sshfs_mkdir(const char *path, mode_t mode)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	buf_add_uint32(&buf, SSH_FILEXFER_ATTR_PERMISSIONS);
-	buf_add_uint32(&buf, mode);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_MKDIR, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-
-	if (err == -EPERM) {
-		if (sshfs.op->access(path, R_OK) == 0) {
-			return -EEXIST;
-		}
-	}
-
-	return err;
-}
+int sshfs_mkdir(const char *path, mode_t mode);
 
 static int sshfs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
