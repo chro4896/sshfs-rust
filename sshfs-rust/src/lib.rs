@@ -757,7 +757,7 @@ pub extern "C" fn sshfs_ext_posix_rename(
             SSH_FXP_EXTENDED,
             &buf,
             SSH_FXP_STATUS,
-            std::ptr::null_mut(),
+            None,
         )
     }
 }
