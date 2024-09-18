@@ -338,6 +338,20 @@ struct List_head {
     next: *mut List_head,
 }
 
+#[repr(C)]
+struct SshfsFile {
+	handle: Buffer_sys,
+	write_reqs: List_head,
+	write_finished: libc::pthread_cond_t,
+	write_error: core::ffi::c_int,
+	readahead: *mut core::ffi::c_void,
+	next_pos: libc::off_t,
+	is_seq: core::ffi::c_int,
+	conn: *mut Conn,
+	connver: core::ffi::c_int,
+	modifver: core::ffi::c_int,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
     Box::into_raw(Box::default())
