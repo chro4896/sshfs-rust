@@ -2429,21 +2429,9 @@ static int sshfs_rename(const char *from, const char *to, unsigned int flags)
 
 int sshfs_link(const char *from, const char *to);
 
-static inline int sshfs_file_is_conn(struct sshfs_file *sf)
-{
-	int ret;
+int sshfs_file_is_conn(struct sshfs_file *sf);
 
-	pthread_mutex_lock(&sshfs.lock);
-	ret = (sf->connver == sf->conn->connver);
-	pthread_mutex_unlock(&sshfs.lock);
-
-	return ret;
-}
-
-static inline struct sshfs_file *get_sshfs_file(struct fuse_file_info *fi)
-{
-	return (struct sshfs_file *) (uintptr_t) fi->fh;
-}
+struct sshfs_file *get_sshfs_file(struct fuse_file_info *fi);
 
 static int sshfs_chmod(const char *path, mode_t mode,
                        struct fuse_file_info *fi)
@@ -2526,12 +2514,7 @@ static int sshfs_chown(const char *path, uid_t uid, gid_t gid,
 static int sshfs_truncate_workaround(const char *path, off_t size,
                                      struct fuse_file_info *fi);
 
-static void sshfs_inc_modifver(void)
-{
-	pthread_mutex_lock(&sshfs.lock);
-	sshfs.modifver++;
-	pthread_mutex_unlock(&sshfs.lock);
-}
+void sshfs_inc_modifver(void);
 
 static int sshfs_utimens(const char *path, const struct timespec tv[2],
 			 struct fuse_file_info *fi)
