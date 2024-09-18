@@ -338,6 +338,20 @@ struct List_head {
     next: *mut List_head,
 }
 
+#[repr(C)]
+struct SshfsFile {
+	handle: Buffer_sys,
+	write_reqs: List_head,
+	write_finished: libc::pthread_cond_t,
+	write_error: core::ffi::c_int,
+	readahead: *mut core::ffi::c_void,
+	next_pos: libc::off_t,
+	is_seq: core::ffi::c_int,
+	conn: *mut Conn,
+	connver: core::ffi::c_int,
+	modifver: core::ffi::c_int,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
     Box::into_raw(Box::default())
@@ -388,6 +402,32 @@ pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn)
     }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn get_sshfs_file(fi: *const fuse_file_info) -> *mut SshfsFile {
+	(*fi).fh as *mut SshfsFile
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_file_is_conn(sf: *const SshfsFile) -> core::ffi::c_int {
+    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+    let ret = if (*sf).connver == (*((*sf).conn)).connver {
+		1
+	} else {
+		0
+	};
+    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    ret
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_inc_modifver() {
+	unsafe {
+        libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+        retrieve_sshfs().unwrap().modifver += 1;
+        libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+	};
+}
+
 extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
@@ -400,7 +440,6 @@ extern "C" {
         expect_type: u8,
         outbuf: Option<&mut Buffer_sys>,
     ) -> core::ffi::c_int;
-    fn sshfs_getattr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, fi: *const core::ffi::c_void) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
