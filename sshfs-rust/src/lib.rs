@@ -622,11 +622,11 @@ pub unsafe extern "C" fn sftp_request(conn: *mut Conn, ssh_type: u8, buf: *const
         let reqp = libc::malloc(std::mem::size_of::<*mut Request>()) as *mut *mut Request;
         (*iov).iov_base = (*buf).p as *mut core::ffi::c_void;
         (*iov).iov_len = (*buf).len;
-        let ret = sftp_request_send(conn, ssh_type, iov, 1, std::ptr::null_mut(), std::ptr::null_mut(), expect_type, std::ptr::null_mut(), reqp);
+        let ret = sftp_request_send(conn, ssh_type, iov, 1, None, None, expect_type, std::ptr::null_mut(), reqp);
         let ret = if expect_type == 0 {
 			ret
 		} else {
-			sftp_request_wait((*reqp), ssh_type, expect_type, outbuf);
+			sftp_request_wait(*reqp, ssh_type, expect_type, outbuf)
 		};
 		libc::free(iov as *mut core::ffi::c_void);
 		libc::free(reqp as *mut core::ffi::c_void);
