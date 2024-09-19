@@ -1460,17 +1460,7 @@ static int sftp_read(struct conn *conn, uint8_t *type, struct buffer *buf)
 	return res;
 }
 
-void request_free(struct request *req)
-{
-	if (req->end_func)
-		req->end_func(req);
-
-	req->conn->req_count--;
-
-	buf_free(&req->reply);
-	sem_destroy(&req->ready);
-	g_free(req);
-}
+void request_free(struct request *req);
 
 static void chunk_free(struct read_chunk *chunk)
 {

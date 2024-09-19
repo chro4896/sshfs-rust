@@ -237,6 +237,7 @@ struct sshfs {
     num_connect: core::ffi::c_uint,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Buffer_sys {
     p: *const u8,
@@ -313,8 +314,9 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(*mut Request);
+type RequestFunc = extern "C" fn(Option<Box<Request>>);
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Request {
     want_reply: core::ffi::c_uint,
@@ -332,6 +334,7 @@ pub struct Request {
     conn: *mut Conn,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 struct List_head {
     prev: *mut List_head,
@@ -384,7 +387,7 @@ pub extern "C" fn req_table_insert(key: u32, val: *mut Request) {
     reqtab.insert(key, val);
 }
 
-type ClearReqFunc = extern "C" fn(*mut Request, *mut Conn) -> core::ffi::c_int;
+type ClearReqFunc = extern "C" fn(Option<Box<Request>>, *mut Conn) -> core::ffi::c_int;
 
 #[no_mangle]
 pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn) {
@@ -428,10 +431,20 @@ pub extern "C" fn sshfs_inc_modifver() {
 	};
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn request_free(req: *mut Request) {
+	let mut req = Box::from_raw(req);
+	if let Some(func) = req.end_func {
+		func(req);
+	}
+	(*(req.conn)).req_count -= 1;
+	libc::free(req.reply.p);
+	libc::sem_destroy(&mut req.ready as *mut libc::sem_t);
+}
+
 extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
-    fn request_free(req: *mut Request);
     fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
@@ -521,13 +534,12 @@ pub extern "C" fn sshfs_access(
 
 #[no_mangle]
 pub unsafe extern "C" fn sftp_request_wait(
-    req: Option<&mut Request>,
+    req: Option<Box<Request>>,
     op_type: u8,
     expect_type: u8,
     outbuf: Option<&mut Buffer_sys>,
 ) -> core::ffi::c_int {
     let req = req.unwrap();
-    let req_orig = req as *mut Request;
     let err = if req.error != 0 {
         req.error
     } else {
@@ -599,30 +611,33 @@ pub unsafe extern "C" fn sftp_request_wait(
         }
     };
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
-    request_free(req_orig);
+    request_free(Box::into_raw(req));
 	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     err
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *mut libc::iovec, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) -> core::ffi::c_int {
-	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
-	(*req).want_reply = want_reply;
-	(*req).end_func = end_func;
-	(*req).data = data;
-	libc::sem_init(&mut ((*req).ready) as *mut libc::sem_t, 0, 0);
-	(*req).reply.p = std::ptr::null() as *const u8;
-	(*req).reply.len = 0;
-	(*req).reply.size = 0;
+	let req_ptr = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
+	// Default が実装されていないため、一旦malloc したものをclone する
+	let req = Box::new((*req_ptr).clone());
+	req.want_reply = want_reply;
+	req.end_func = end_func;
+	req.data = data;
+	libc::sem_init(&mut (req.ready) as *mut libc::sem_t, 0, 0);
+	req.reply.p = std::ptr::null() as *const u8;
+	req.reply.len = 0;
+	req.reply.size = 0;
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     if let Some(func) = begin_func {
 		func(req);
 	}
 	let id = sftp_get_id();
-	(*req).id = id;
-	(*req).conn = conn.clone();
-	(*((*req).conn)).req_count += 1;
+	req.id = id;
+	req.conn = conn.clone();
+	(*(req.conn)).req_count += 1;
 	let mut err = start_processing_thread(conn);
+	let req = Boxx::into_raw(req);
 	if err != 0 {
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);	
 	} else {
@@ -657,7 +672,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *
 	}
 	(*req).error = err;
     if want_reply == 0 {
-		sftp_request_wait(Some(&mut (*req)), ssh_type, 0, None);
+		sftp_request_wait(Some(Box::from_raw(req)), ssh_type, 0, None);
 	} else {
 	    *reqp = req;
 	}
@@ -678,7 +693,7 @@ pub unsafe extern "C" fn sftp_request(conn: *mut Conn, ssh_type: u8, buf: *const
         let ret = if expect_type == 0 {
 			ret
 		} else {
-			sftp_request_wait(Some(&mut (*(*reqp))), ssh_type, expect_type, outbuf)
+			sftp_request_wait(Some(Box::from_raw(*reqp)), ssh_type, expect_type, outbuf)
 		};
 		libc::free(iov as *mut core::ffi::c_void);
 		libc::free(reqp as *mut core::ffi::c_void);
