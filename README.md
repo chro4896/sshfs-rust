@@ -14,6 +14,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 - sshfs_unlink
 - sshfs_rmdir
 - sshfs_do_rename
+- sshfs_ext_posix_rename
 - random_string
 - sshfs_link
 
