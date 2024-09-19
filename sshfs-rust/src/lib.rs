@@ -520,19 +520,19 @@ pub extern "C" fn sshfs_access(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request_wait(
-    req: *mut Request,
+pub extern "C" fn sftp_request_wait(
+    req: Option<&mut Request>,
     op_type: u8,
     expect_type: u8,
     outbuf: Option<&mut Buffer_sys>,
 ) -> core::ffi::c_int {
-    let req_orig = req;
-    let req = &mut (*req);
+    let req_orig = req as *mut Request;
+    let req = req.unwrap();
     let err = if req.error != 0 {
         req.error
     } else {
         loop {
-            if libc::sem_wait(&mut req.ready as *mut libc::sem_t) == 0 {
+            if unsafe { libc::sem_wait(&mut req.ready as *mut libc::sem_t) } == 0 {
                 break;
             }
         }
@@ -543,10 +543,10 @@ pub unsafe extern "C" fn sftp_request_wait(
             -libc::EIO
         } else if req.reply_type == SSH_FXP_STATUS {
             let mut serr: u32 = 0;
-            if buf_get_uint32(
+            if unsafe { buf_get_uint32(
                 &mut req.reply as *mut Buffer_sys as *mut core::ffi::c_void,
                 &mut serr as *mut u32,
-            ) != -1
+            ) } != -1
             {
                 match serr {
                     SSH_FX_OK => {
@@ -570,7 +570,7 @@ pub unsafe extern "C" fn sftp_request_wait(
                             -libc::EPERM
                         }
                     }
-                    _ => -sftp_error_to_errno(serr),
+                    _ => -unsafe{sftp_error_to_errno(serr)},
                 }
             } else {
                 -libc::EIO
@@ -578,7 +578,7 @@ pub unsafe extern "C" fn sftp_request_wait(
         } else {
 			let outbuf = outbuf.unwrap();
             outbuf.p =
-                libc::malloc(req.reply.size - req.reply.len) as *const u8;
+                unsafe{libc::malloc(req.reply.size - req.reply.len) as *const u8};
             if outbuf.p == (std::ptr::null_mut() as *const u8) {
                 panic!("sshfs: memory allocation failed");
             }
@@ -587,20 +587,24 @@ pub unsafe extern "C" fn sftp_request_wait(
             if req.reply.len + outbuf.size > req.reply.size {
                 eprintln!("buffer too short");
             } else {
+				unsafe{
                 libc::memcpy(
                     outbuf.p as *mut core::ffi::c_void,
                     req.reply.p.offset(req.reply.len.try_into().unwrap())
                         as *const core::ffi::c_void,
                     outbuf.size,
                 );
+			}
                 req.reply.len += outbuf.size;
             }
             0
         }
     };
+    unsafe {
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     request_free(req_orig);
 	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+}
     err
 }
 
