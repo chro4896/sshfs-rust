@@ -435,7 +435,7 @@ pub extern "C" fn sshfs_inc_modifver() {
 pub unsafe extern "C" fn request_free(req: *mut Request) {
 	let mut req = Box::from_raw(req);
 	if let Some(func) = req.end_func {
-		func(req);
+		func(&mut req);
 	}
 	(*(req.conn)).req_count -= 1;
 	libc::free(req.reply.p as *mut core::ffi::c_void);
@@ -630,7 +630,7 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *
 	req.reply.size = 0;
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     if let Some(func) = begin_func {
-		func(req);
+		func(&mut req);
 	}
 	let id = sftp_get_id();
 	req.id = id;
