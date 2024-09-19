@@ -678,7 +678,7 @@ pub unsafe extern "C" fn sftp_request(conn: *mut Conn, ssh_type: u8, buf: *const
         let ret = if expect_type == 0 {
 			ret
 		} else {
-			sftp_request_wait(*reqp, ssh_type, expect_type, outbuf)
+			sftp_request_wait(Some(&mut (*(*reqp))), ssh_type, expect_type, outbuf)
 		};
 		libc::free(iov as *mut core::ffi::c_void);
 		libc::free(reqp as *mut core::ffi::c_void);
