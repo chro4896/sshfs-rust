@@ -398,9 +398,9 @@ extern "C" {
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
-    fn iov_length(iov: *mut core::ffi::c_void, nr_segs: core::ffi::c_ulong) -> usize;
+    fn iov_length(iov: *mut libc::iovec, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
-    fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut core::ffi::c_void, count: usize) -> core::ffi::c_int;
+    fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut libc::iovec, count: usize) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -553,7 +553,7 @@ pub unsafe extern "C" fn sftp_request_wait(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *mut core::ffi::c_void, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) -> core::ffi::c_int {
+pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *mut libc::iovec, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) -> core::ffi::c_int {
 	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
 	(*req).want_reply = want_reply;
 	(*req).end_func = end_func;
@@ -626,7 +626,7 @@ pub unsafe extern "C" fn sftp_request(conn: *mut Conn, ssh_type: u8, buf: *const
         let ret = if expect_type == 0 {
 			ret
 		} else {
-			sftp_request_wait(*reqp, ssh_type, expect_type as core::ffi::c_int, outbuf)
+			sftp_request_wait(*reqp, ssh_type, expect_type as core::ffi::c_uint, outbuf)
 		};
 		libc::free(iov as *mut core::ffi::c_void);
 		libc::free(reqp as *mut core::ffi::c_void);
