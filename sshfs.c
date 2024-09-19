@@ -1980,28 +1980,8 @@ int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 			     size_t count, request_func begin_func, request_func end_func,
 			     int want_reply, void *data, struct request **reqp);
 
-static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
-			    size_t count, uint8_t expect_type, struct buffer *outbuf)
-{
-	int err;
-	struct request *req;
-
-	err = sftp_request_send(conn, type, iov, count, NULL, NULL,
-				expect_type, NULL, &req);
-	if (expect_type == 0)
-		return err;
-
-	return sftp_request_wait(req, type, expect_type, outbuf);
-}
-
 int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
-			uint8_t expect_type, struct buffer *outbuf)
-{
-	struct iovec iov;
-
-	buf_to_iov(buf, &iov);
-	return sftp_request_iov(conn, type, &iov, 1, expect_type, outbuf);
-}
+			uint8_t expect_type, struct buffer *outbuf);
 
 int sshfs_access(const char *path, int mask);
 
