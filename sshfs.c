@@ -1971,96 +1971,12 @@ static void *sshfs_init(struct fuse_conn_info *conn,
 
 int sftp_request_wait(struct request *req, uint8_t type,
                              uint8_t expect_type, struct buffer *outbuf);
-
-static int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
+int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 			     size_t count, request_func begin_func, request_func end_func,
-			     int want_reply, void *data, struct request **reqp)
-{
-	int err;
-	uint32_t id;
-	struct request *req = g_new0(struct request, 1);
-
-	req->want_reply = want_reply;
-	req->end_func = end_func;
-	req->data = data;
-	sem_init(&req->ready, 0, 0);
-	buf_init(&req->reply, 0);
-	pthread_mutex_lock(&sshfs.lock);
-	if (begin_func)
-		begin_func(req);
-	id = sftp_get_id();
-	req->id = id;
-	req->conn = conn;
-	req->conn->req_count++;
-	err = start_processing_thread(conn);
-	if (err) {
-		pthread_mutex_unlock(&sshfs.lock);
-		goto out;
-	}
-	req->len = iov_length(iov, count) + 9;
-	sshfs.outstanding_len += req->len;
-	while (sshfs.outstanding_len > sshfs.max_outstanding_len)
-		pthread_cond_wait(&sshfs.outstanding_cond, &sshfs.lock);
-
-	req_table_insert(id, req);
-	if (sshfs.debug) {
-		gettimeofday(&req->start, NULL);
-		sshfs.num_sent++;
-		sshfs.bytes_sent += req->len;
-	}
-	DEBUG("[%05i] %s\n", id, type_name(type));
-	pthread_mutex_unlock(&sshfs.lock);
-
-	err = -EIO;
-	if (sftp_send_iov(conn, type, id, iov, count) == -1) {
-		int rmed;
-
-		pthread_mutex_lock(&sshfs.lock);
-		rmed = req_table_remove(id);
-		pthread_mutex_unlock(&sshfs.lock);
-
-		if (!rmed && !want_reply) {
-			/* request already freed */
-			return err;
-		}
-		goto out;
-	}
-	if (want_reply)
-		*reqp = req;
-	return 0;
-
-out:
-	req->error = err;
-	if (!want_reply)
-		sftp_request_wait(req, type, 0, NULL);
-	else
-		*reqp = req;
-
-	return err;
-}
-
-static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
-			    size_t count, uint8_t expect_type, struct buffer *outbuf)
-{
-	int err;
-	struct request *req;
-
-	err = sftp_request_send(conn, type, iov, count, NULL, NULL,
-				expect_type, NULL, &req);
-	if (expect_type == 0)
-		return err;
-
-	return sftp_request_wait(req, type, expect_type, outbuf);
-}
+			     int want_reply, void *data, struct request **reqp);
 
 int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
-			uint8_t expect_type, struct buffer *outbuf)
-{
-	struct iovec iov;
-
-	buf_to_iov(buf, &iov);
-	return sftp_request_iov(conn, type, &iov, 1, expect_type, outbuf);
-}
+			uint8_t expect_type, struct buffer *outbuf);
 
 int sshfs_access(const char *path, int mask);
 
@@ -2287,27 +2203,7 @@ int sshfs_readdir(const char *path, void *dbuf, fuse_fill_dir_t filler,
 
 int sshfs_releasedir(const char *path, struct fuse_file_info *fi);
 
-
-static int sshfs_mkdir(const char *path, mode_t mode)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_path(&buf, path);
-	buf_add_uint32(&buf, SSH_FILEXFER_ATTR_PERMISSIONS);
-	buf_add_uint32(&buf, mode);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_MKDIR, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-
-	if (err == -EPERM) {
-		if (sshfs.op->access(path, R_OK) == 0) {
-			return -EEXIST;
-		}
-	}
-
-	return err;
-}
+int sshfs_mkdir(const char *path, mode_t mode);
 
 static int sshfs_mknod(const char *path, mode_t mode, dev_t rdev)
 {
@@ -2366,19 +2262,7 @@ int sshfs_rmdir(const char *path);
 
 int sshfs_do_rename(const char *from, const char *to);
 
-static int sshfs_ext_posix_rename(const char *from, const char *to)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_string(&buf, SFTP_EXT_POSIX_RENAME);
-	buf_add_path(&buf, from);
-	buf_add_path(&buf, to);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_EXTENDED, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
+int sshfs_ext_posix_rename(const char *from, const char *to);
 
 void random_string(char *str, int length);
 
