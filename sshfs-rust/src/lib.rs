@@ -620,7 +620,8 @@ pub unsafe extern "C" fn sftp_request_wait(
 pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *mut libc::iovec, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) -> core::ffi::c_int {
 	let req_ptr = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
 	// Default が実装されていないため、一旦malloc したものをclone する
-	let req = Box::new((*req_ptr).clone());
+	let mut req = Box::new((*req_ptr).clone());
+	libc::free(req_ptr as *mut core::ffi::c_void);
 	req.want_reply = want_reply;
 	req.end_func = end_func;
 	req.data = data;
