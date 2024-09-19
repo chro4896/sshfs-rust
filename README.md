@@ -6,6 +6,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 
 - sftp_request_wait
 - sftp_request_send
+- sftp_request
 - sshfs_access
 - sshfs_opendir
 - sshfs_readdir（部分的）
