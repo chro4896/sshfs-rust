@@ -314,7 +314,7 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(Option<Box<Request>>);
+type RequestFunc = extern "C" fn(&mut Request);
 
 #[derive(Clone)]
 #[repr(C)]
@@ -387,7 +387,7 @@ pub extern "C" fn req_table_insert(key: u32, val: *mut Request) {
     reqtab.insert(key, val);
 }
 
-type ClearReqFunc = extern "C" fn(Option<Box<Request>>, *mut Conn) -> core::ffi::c_int;
+type ClearReqFunc = extern "C" fn(*mut Request, *mut Conn) -> core::ffi::c_int;
 
 #[no_mangle]
 pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn) {
@@ -435,10 +435,10 @@ pub extern "C" fn sshfs_inc_modifver() {
 pub unsafe extern "C" fn request_free(req: *mut Request) {
 	let mut req = Box::from_raw(req);
 	if let Some(func) = req.end_func {
-		func(req);
+		func(Some(req));
 	}
 	(*(req.conn)).req_count -= 1;
-	libc::free(req.reply.p);
+	libc::free(req.reply.p as *mut core::ffi::c_void);
 	libc::sem_destroy(&mut req.ready as *mut libc::sem_t);
 }
 
@@ -539,7 +539,7 @@ pub unsafe extern "C" fn sftp_request_wait(
     expect_type: u8,
     outbuf: Option<&mut Buffer_sys>,
 ) -> core::ffi::c_int {
-    let req = req.unwrap();
+    let mut req = req.unwrap();
     let err = if req.error != 0 {
         req.error
     } else {
@@ -630,14 +630,14 @@ pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *
 	req.reply.size = 0;
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     if let Some(func) = begin_func {
-		func(req);
+		func(Some(req));
 	}
 	let id = sftp_get_id();
 	req.id = id;
 	req.conn = conn.clone();
 	(*(req.conn)).req_count += 1;
 	let mut err = start_processing_thread(conn);
-	let req = Boxx::into_raw(req);
+	let req = Box::into_raw(req);
 	if err != 0 {
 		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);	
 	} else {
