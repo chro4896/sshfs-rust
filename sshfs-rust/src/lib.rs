@@ -864,3 +864,21 @@ pub extern "C" fn sshfs_do_rename(
         )
     }
 }
+
+#[no_mangle]
+pub extern "C" fn sshfs_read(
+    _path: *const core::ffi::c_char,
+    rbuf: *mut core::ffi::c_char,
+    size: usize,
+    offset: lobc::off_t,
+    fi: &mut fuse_file_info,
+) -> core::ffi::c_int {
+	let sf = unsafe { get_sshfs_file(fi) };
+	if unsafe { sshfs_file_is_conn(sf) } == 0 {
+		-libc::EIO
+	} else if unsafe { retrieve_sshfs().unwrap().sync_read } != 0 {
+		unsafe { sshfs_sync_read(sf, rbuf, size, offset) }
+	} else {
+		unsafe { sshfs_async_read(sf, rbuf, size, offset) }
+	}
+}

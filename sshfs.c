@@ -2820,7 +2820,7 @@ out:
 	return res;
 }
 
-static int sshfs_sync_read(struct sshfs_file *sf, char *buf, size_t size,
+int sshfs_sync_read(struct sshfs_file *sf, char *buf, size_t size,
                            off_t offset)
 {
 	struct read_chunk *chunk;
@@ -2853,7 +2853,7 @@ static struct read_chunk *search_read_chunk(struct sshfs_file *sf, off_t offset)
 		return NULL;
 }
 
-static int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
+int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
                             off_t offset)
 {
 	int res = 0;
@@ -2903,20 +2903,8 @@ static int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
 	return total;
 }
 
-static int sshfs_read(const char *path, char *rbuf, size_t size, off_t offset,
-                      struct fuse_file_info *fi)
-{
-	struct sshfs_file *sf = get_sshfs_file(fi);
-	(void) path;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	if (sshfs.sync_read)
-		return sshfs_sync_read(sf, rbuf, size, offset);
-	else
-		return sshfs_async_read(sf, rbuf, size, offset);
-}
+int sshfs_read(const char *path, char *rbuf, size_t size, off_t offset,
+                      struct fuse_file_info *fi);
 
 static void sshfs_write_begin(struct request *req)
 {
