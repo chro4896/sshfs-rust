@@ -457,6 +457,8 @@ extern "C" {
                            offset: libc::off_t) -> core::ffi::c_int;
     fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
+    fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
+    fn sftp_detect_uid(conn: *mut Conn);
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -488,6 +490,18 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
         real_path.push(b'.');
     }
     real_path
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi::c_int {
+	if *conn.processing_thread_started != 0 {
+		0
+	} else {
+		if *conn.rfd == -1 {
+			connect_remote(conn);
+		}
+		0
+	}
 }
 
 #[no_mangle]
