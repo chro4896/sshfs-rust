@@ -874,7 +874,7 @@ pub unsafe extern "C" fn sshfs_read(
     _path: *const core::ffi::c_char,
     rbuf: *mut core::ffi::c_char,
     size: usize,
-    offset: lobc::off_t,
+    offset: libc::off_t,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
 	let sf = get_sshfs_file(fi);
