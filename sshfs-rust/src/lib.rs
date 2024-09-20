@@ -466,6 +466,10 @@ extern "C" {
         offset: libc::off_t,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
+    fn sshfs_sync_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
