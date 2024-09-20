@@ -18,6 +18,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 - sshfs_ext_posix_rename
 - random_string
 - sshfs_link
+- sshfs_read（部分的）
 
 これ以下は、オリジナルのSSHFS のREADME である。
 
