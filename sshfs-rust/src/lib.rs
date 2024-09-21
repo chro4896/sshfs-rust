@@ -458,6 +458,7 @@ extern "C" {
                            offset: libc::off_t) -> core::ffi::c_int;
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
+    fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -505,9 +506,17 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
 		let newset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
 		let oldset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
-		
-		libc::free(newset);
-		libc::free(oldset);
+		libc::sigemptyset(newset);
+		libc::sigaddset(newset, libc::SIGTERM);
+		libc::sigaddset(newset, libc::SIGINT);
+		libc::sigaddset(newset, libc::SIGHUP);
+		libc::sigaddset(newset, libc::SIGQUIT);
+		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
+		let conn_clone = conn.clone();
+		let handle = std::thread::spawn(move || { process_requests(conn_clone as *mut core::ffi::c_void); });
+		libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut() as *mut libc::sigset_t);
+		libc::free(newset as *mut core::ffi::c_void);
+		libc::free(oldset as *mut core::ffi::c_void);
 		0
 	}
 }

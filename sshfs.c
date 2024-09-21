@@ -1599,7 +1599,7 @@ static void close_conn(struct conn *conn)
 	}
 }
 
-static void *process_requests(void *data_)
+void *process_requests(void *data_)
 {
 	(void) data_;
 	struct conn *conn = data_;
