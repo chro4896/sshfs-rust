@@ -493,12 +493,21 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
 
 #[no_mangle]
 pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi::c_int {
-	if *conn.processing_thread_started != 0 {
+	if (*conn).processing_thread_started != 0 {
 		0
+	} else if (*conn).rfd == -1 && connect_remote(conn) != 0 {
+		-libc::EIO
 	} else {
-		if *conn.rfd == -1 {
-			connect_remote(conn);
+		if retrieve_sshfs().unwrap().detect_uid != 0 {
+			sftp_detect_uid(conn);
+			retrieve_sshfs().unwrap().detect_uid = 0;
 		}
+		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+		let newset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		let oldset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		
+		libc::free(newset);
+		libc::free(oldset);
 		0
 	}
 }
