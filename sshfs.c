@@ -4041,7 +4041,7 @@ int main(int argc, char *argv[])
 	sshfs.conns = malloc(sizeof(struct conn *)*sshfs.max_conns);
 	for (i = 0; i < sshfs.max_conns; i++) {
 		sshfs.conns[i] = malloc_conn();
-		sshfs.conns[i]->fd = -1;
+		sshfs.conns[i]->rfd = -1;
 		sshfs.conns[i]->wfd = -1;
 	}
 
