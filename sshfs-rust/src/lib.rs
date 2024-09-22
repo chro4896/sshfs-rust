@@ -544,9 +544,11 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 		libc::sigaddset(newset, libc::SIGHUP);
 		libc::sigaddset(newset, libc::SIGQUIT);
 		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
-		let conn_clone = conn.clone();
+		let conn_org = std::sync::Arc::from_raw(conn);
+		let conn_clone = conn_org.clone();
+		let conn = std::sync::Arc::into_raw(conn_org);
 		let builder = std::thread::Builder::new();
-		let handle = builder.spawn(move || { process_requests(conn_clone as *mut core::ffi::c_void); });
+		let handle = builder.spawn(move || { let conn_ptr = std::sync::into_raw(conn_clone); process_requests(conn_ptr); std::sync::Arc::from_raw(conn_ptr) });
 		if let Err(err) = handle {
 			eprintln!("failed to create thread: {}", err.kind());
 	    	libc::free(newset as *mut core::ffi::c_void);
@@ -554,6 +556,7 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 			-libc::EIO
 		} else {
     		libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut() as *mut libc::sigset_t);
+    		(*conn).processing_thread_started = 1;
 	    	libc::free(newset as *mut core::ffi::c_void);
 		    libc::free(oldset as *mut core::ffi::c_void);
 		    0
