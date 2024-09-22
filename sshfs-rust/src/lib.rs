@@ -297,6 +297,7 @@ impl Buffer {
     }
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Conn {
     lock_write: libc::pthread_mutex_t,
@@ -440,6 +441,18 @@ pub unsafe extern "C" fn request_free(req: *mut Request) {
     (*(req.conn)).req_count -= 1;
     libc::free(req.reply.p as *mut core::ffi::c_void);
     libc::sem_destroy(&mut req.ready as *mut libc::sem_t);
+}
+
+#[no_mangle]
+pub extern "C" fn malloc_conn() -> *mut Conn {
+	let conn_ptr = unsafe { libc::calloc(1, std::mem::size_of::<Conn>()) } as *mut Conn;
+	if conn_ptr as *mut core::ffi::c_void == std::ptr::null_mut() {
+		panic!("sshfs: memory allocation failed");
+	};
+    // Default が実装されていないため、一旦malloc したものをclone する
+    let mut conn = Arc::new((*conn_ptr).clone());
+    unsafe { libc::free(conn_ptr as *mut core::ffi::c_void); };
+    Arc::into_raw(conn) as *mut Conn
 }
 
 extern "C" {
