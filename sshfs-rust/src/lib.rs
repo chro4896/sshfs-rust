@@ -450,9 +450,9 @@ pub extern "C" fn malloc_conn() -> *mut Conn {
 		panic!("sshfs: memory allocation failed");
 	};
     // Default が実装されていないため、一旦malloc したものをclone する
-    let mut conn = Arc::new((*conn_ptr).clone());
+    let mut conn = std::sync::Arc::new((*conn_ptr).clone());
     unsafe { libc::free(conn_ptr as *mut core::ffi::c_void); };
-    Arc::into_raw(conn) as *mut Conn
+    std::sync::Arc::into_raw(conn) as *mut Conn
 }
 
 extern "C" {
