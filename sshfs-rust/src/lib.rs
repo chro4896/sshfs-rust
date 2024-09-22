@@ -545,9 +545,12 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 		libc::sigaddset(newset, libc::SIGQUIT);
 		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
 		let conn_clone = conn.clone();
-		let builder = std::thread::Builder::new():
+		let builder = std::thread::Builder::new();
 		let handle = builder.spawn(move || { process_requests(conn_clone as *mut core::ffi::c_void); });
-		if let Err(_) = handle {
+		if let Err(err) = handle {
+			eprintln!("failed to create thread: {}", err.kind());
+	    	libc::free(newset as *mut core::ffi::c_void);
+		    libc::free(oldset as *mut core::ffi::c_void);
 			-libc::EIO
 		} else {
     		libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut() as *mut libc::sigset_t);
