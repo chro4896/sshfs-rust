@@ -548,7 +548,7 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 		let conn_clone = conn_org.clone();
 		let conn = std::sync::Arc::into_raw(conn_org);
 		let builder = std::thread::Builder::new();
-		let handle = builder.spawn(move || { let conn_ptr = std::sync::Arc::into_raw(conn_clone); process_requests(conn_ptr); std::sync::Arc::from_raw(conn_ptr) });
+		let handle = builder.spawn(move || { let conn_ptr = std::sync::Arc::into_raw(conn_clone); process_requests(conn_ptr as *mut core::ffi::c_void); std::sync::Arc::from_raw(conn_ptr) });
 		if let Err(err) = handle {
 			eprintln!("failed to create thread: {}", err.kind());
 	    	libc::free(newset as *mut core::ffi::c_void);
