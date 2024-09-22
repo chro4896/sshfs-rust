@@ -546,7 +546,7 @@ pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi:
 		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
 		let conn_org = std::sync::Arc::from_raw(conn);
 		let conn_clone = conn_org.clone();
-		let conn: *mut Conn = std::sync::Arc::into_raw(conn_org);
+		let conn = std::sync::Arc::into_raw(conn_org) as *mut Conn;
 		let builder = std::thread::Builder::new();
 		let handle = builder.spawn(move || { let conn_ptr = std::sync::Arc::into_raw(conn_clone); process_requests(conn_ptr as *mut core::ffi::c_void); std::sync::Arc::from_raw(conn_ptr) });
 		if let Err(err) = handle {
