@@ -10,6 +10,7 @@ const SSH_FXP_RMDIR: u8 = 15;
 const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
 const SSH_FXP_HANDLE: u8 = 102;
+const SSH_FXP_NAME: u8 = 104;
 const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FILEXFER_ATTR_PERMISSIONS: u32 = 4;
