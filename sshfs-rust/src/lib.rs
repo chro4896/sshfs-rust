@@ -22,6 +22,7 @@ extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
+    fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
 #[repr(C)]
@@ -348,7 +349,26 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
     }
     real_path
 }
-    fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
+
+#[no_mangle]
+pub extern "C" fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int {
+	assert_eq!(0, offset);
+	let mut err = 0;
+	while err == 0 {
+		let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
+		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(*name)) };
+		if err == 0 {
+			unsafe { buf_get_entries(name, buf, filler) };
+			unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
+		}
+		unsafe { libc::free(name as *mut core::ffi::c_void) };
+	}
+	if err == MY_EOF {
+		0
+	} else {
+		err
+	}
+}
 
 #[no_mangle]
 pub extern "C" fn sshfs_opendir(path: *const core::ffi::c_char, mut fi: &mut fuse_file_info) -> core::ffi::c_int {
