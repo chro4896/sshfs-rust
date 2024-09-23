@@ -237,6 +237,7 @@ struct sshfs {
     num_connect: core::ffi::c_uint,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Buffer_sys {
     p: *const u8,
@@ -296,6 +297,7 @@ impl Buffer {
     }
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Conn {
     lock_write: libc::pthread_mutex_t,
@@ -313,8 +315,9 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(*mut Request);
+type RequestFunc = extern "C" fn(&mut Request);
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct Request {
     want_reply: core::ffi::c_uint,
@@ -332,6 +335,7 @@ pub struct Request {
     conn: *mut Conn,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 struct List_head {
     prev: *mut List_head,
@@ -340,16 +344,16 @@ struct List_head {
 
 #[repr(C)]
 struct SshfsFile {
-	handle: Buffer_sys,
-	write_reqs: List_head,
-	write_finished: libc::pthread_cond_t,
-	write_error: core::ffi::c_int,
-	readahead: *mut core::ffi::c_void,
-	next_pos: libc::off_t,
-	is_seq: core::ffi::c_int,
-	conn: *mut Conn,
-	connver: core::ffi::c_int,
-	modifver: core::ffi::c_int,
+    handle: Buffer_sys,
+    write_reqs: List_head,
+    write_finished: libc::pthread_cond_t,
+    write_error: core::ffi::c_int,
+    readahead: *mut core::ffi::c_void,
+    next_pos: libc::off_t,
+    is_seq: core::ffi::c_int,
+    conn: *mut Conn,
+    connver: core::ffi::c_int,
+    modifver: core::ffi::c_int,
 }
 
 #[no_mangle]
@@ -404,41 +408,68 @@ pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn)
 
 #[no_mangle]
 pub unsafe extern "C" fn get_sshfs_file(fi: *const fuse_file_info) -> *mut SshfsFile {
-	(*fi).fh as *mut SshfsFile
+    (*fi).fh as *mut SshfsFile
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn sshfs_file_is_conn(sf: *const SshfsFile) -> core::ffi::c_int {
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     let ret = if (*sf).connver == (*((*sf).conn)).connver {
-		1
-	} else {
-		0
-	};
+        1
+    } else {
+        0
+    };
     libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     ret
 }
 
 #[no_mangle]
 pub extern "C" fn sshfs_inc_modifver() {
-	unsafe {
+    unsafe {
         libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
         retrieve_sshfs().unwrap().modifver += 1;
         libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    };
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn request_free(req: *mut Request) {
+    let mut req = Box::from_raw(req);
+    if let Some(func) = req.end_func {
+        func(&mut req);
+    }
+    (*(req.conn)).req_count -= 1;
+    libc::free(req.reply.p as *mut core::ffi::c_void);
+    libc::sem_destroy(&mut req.ready as *mut libc::sem_t);
+}
+
+#[no_mangle]
+pub extern "C" fn malloc_conn() -> *mut Conn {
+	let conn_ptr = unsafe { libc::calloc(1, std::mem::size_of::<Conn>()) } as *mut Conn;
+	if conn_ptr as *mut core::ffi::c_void == std::ptr::null_mut() {
+		panic!("sshfs: memory allocation failed");
 	};
+    // Default が実装されていないため、一旦malloc したものをclone する
+    let conn = std::sync::Arc::new(unsafe { (*conn_ptr).clone() });
+    unsafe { libc::free(conn_ptr as *mut core::ffi::c_void); };
+    std::sync::Arc::into_raw(conn) as *mut Conn
 }
 
 extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
-    fn request_free(req: *mut Request);
     fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
-    fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
     fn iov_length(iov: *mut libc::iovec, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
-    fn sftp_send_iov(conn: *mut Conn, ssh_type: u8, id: u32, iov: *mut libc::iovec, count: usize) -> core::ffi::c_int;
+    fn sftp_send_iov(
+        conn: *mut Conn,
+        ssh_type: u8,
+        id: u32,
+        iov: *mut libc::iovec,
+        count: usize,
+    ) -> core::ffi::c_int;
     fn sftp_readdir_sync(
         conn: *mut Conn,
         handle: &Buffer_sys,
@@ -457,10 +488,16 @@ extern "C" {
                            offset: libc::off_t) -> core::ffi::c_int;
     fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
+<<<<<<< HEAD
     fn sshfs_sync_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
     fn sshfs_async_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
+=======
+    fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
+    fn sftp_detect_uid(conn: *mut Conn);
+    fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
+>>>>>>> convert-sshfs_init-into-rust
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -492,6 +529,46 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
         real_path.push(b'.');
     }
     real_path
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi::c_int {
+	if (*conn).processing_thread_started != 0 {
+		0
+	} else if (*conn).rfd == -1 && connect_remote(conn) != 0 {
+		-libc::EIO
+	} else {
+		if retrieve_sshfs().unwrap().detect_uid != 0 {
+			sftp_detect_uid(conn);
+			retrieve_sshfs().unwrap().detect_uid = 0;
+		}
+		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+		let newset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		let oldset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		libc::sigemptyset(newset);
+		libc::sigaddset(newset, libc::SIGTERM);
+		libc::sigaddset(newset, libc::SIGINT);
+		libc::sigaddset(newset, libc::SIGHUP);
+		libc::sigaddset(newset, libc::SIGQUIT);
+		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
+		let conn_org = std::sync::Arc::from_raw(conn);
+		let conn_clone = conn_org.clone();
+		let conn = std::sync::Arc::into_raw(conn_org) as *mut Conn;
+		let builder = std::thread::Builder::new();
+		let handle = builder.spawn(move || { let conn_ptr = std::sync::Arc::into_raw(conn_clone); process_requests(conn_ptr as *mut core::ffi::c_void); std::sync::Arc::from_raw(conn_ptr) });
+		if let Err(err) = handle {
+			eprintln!("failed to create thread: {}", err.kind());
+	    	libc::free(newset as *mut core::ffi::c_void);
+		    libc::free(oldset as *mut core::ffi::c_void);
+			-libc::EIO
+		} else {
+    		libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut() as *mut libc::sigset_t);
+    		(*conn).processing_thread_started = 1;
+	    	libc::free(newset as *mut core::ffi::c_void);
+		    libc::free(oldset as *mut core::ffi::c_void);
+		    0
+		}
+	}
 }
 
 #[no_mangle]
@@ -529,13 +606,12 @@ pub extern "C" fn sshfs_access(
 
 #[no_mangle]
 pub unsafe extern "C" fn sftp_request_wait(
-    req: *mut Request,
+    req: Option<Box<Request>>,
     op_type: u8,
     expect_type: u8,
     outbuf: Option<&mut Buffer_sys>,
 ) -> core::ffi::c_int {
-    let req_orig = req;
-    let req = &mut (*req);
+    let mut req = req.unwrap();
     let err = if req.error != 0 {
         req.error
     } else {
@@ -584,9 +660,8 @@ pub unsafe extern "C" fn sftp_request_wait(
                 -libc::EIO
             }
         } else {
-			let outbuf = outbuf.unwrap();
-            outbuf.p =
-                libc::malloc(req.reply.size - req.reply.len) as *const u8;
+            let outbuf = outbuf.unwrap();
+            outbuf.p = libc::malloc(req.reply.size - req.reply.len) as *const u8;
             if outbuf.p == (std::ptr::null_mut() as *const u8) {
                 panic!("sshfs: memory allocation failed");
             }
@@ -607,90 +682,129 @@ pub unsafe extern "C" fn sftp_request_wait(
         }
     };
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
-    request_free(req_orig);
-	libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    request_free(Box::into_raw(req));
+    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     err
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request_send(conn: *mut Conn, ssh_type: u8, iov: *mut libc::iovec, count: usize, begin_func: Option<RequestFunc>, end_func: Option<RequestFunc>, want_reply: core::ffi::c_uint, data: *mut core::ffi::c_void, reqp: *mut *mut Request) -> core::ffi::c_int {
-	let req = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
-	(*req).want_reply = want_reply;
-	(*req).end_func = end_func;
-	(*req).data = data;
-	libc::sem_init(&mut ((*req).ready) as *mut libc::sem_t, 0, 0);
-	(*req).reply.p = std::ptr::null() as *const u8;
-	(*req).reply.len = 0;
-	(*req).reply.size = 0;
+pub unsafe extern "C" fn sftp_request_send(
+    conn: *mut Conn,
+    ssh_type: u8,
+    iov: *mut libc::iovec,
+    count: usize,
+    begin_func: Option<RequestFunc>,
+    end_func: Option<RequestFunc>,
+    want_reply: core::ffi::c_uint,
+    data: *mut core::ffi::c_void,
+    reqp: *mut *mut Request,
+) -> core::ffi::c_int {
+    let req_ptr = libc::calloc(1, std::mem::size_of::<Request>()) as *mut Request;
+    // Default が実装されていないため、一旦malloc したものをclone する
+    let mut req = Box::new((*req_ptr).clone());
+    libc::free(req_ptr as *mut core::ffi::c_void);
+    req.want_reply = want_reply;
+    req.end_func = end_func;
+    req.data = data;
+    libc::sem_init(&mut (req.ready) as *mut libc::sem_t, 0, 0);
+    req.reply.p = std::ptr::null() as *const u8;
+    req.reply.len = 0;
+    req.reply.size = 0;
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     if let Some(func) = begin_func {
-		func(req);
-	}
-	let id = sftp_get_id();
-	(*req).id = id;
-	(*req).conn = conn.clone();
-	(*((*req).conn)).req_count += 1;
-	let mut err = start_processing_thread(conn);
-	if err != 0 {
-		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);	
-	} else {
-		(*req).len = iov_length(iov, count.try_into().unwrap()) + 9;
-		let sshfs_obj = retrieve_sshfs().unwrap();
-		sshfs_obj.outstanding_len += <usize as TryInto<u32>>::try_into((*req).len).unwrap();
-		while sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len {
-    		libc::pthread_cond_wait(&mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t, sshfs_obj.lock_ptr);
-		}
-		req_table_insert(id, req);
-		if sshfs_obj.debug != 0 {
-			libc::gettimeofday(&mut (*req).start as *mut libc::timeval, std::ptr::null_mut());
-			sshfs_obj.num_sent += 1;
-			sshfs_obj.bytes_sent += (*req).len as u64;
-			eprintln!("{0:<5} {1}", id, core::ffi::CStr::from_ptr(type_name(ssh_type)).to_str().unwrap());
-		}
-		libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
-		err = -libc::EIO;
-		if sftp_send_iov(conn, ssh_type, id, iov, count) == -1{
+        func(&mut req);
+    }
+    let id = sftp_get_id();
+    req.id = id;
+    req.conn = conn.clone();
+    (*(req.conn)).req_count += 1;
+    let mut err = start_processing_thread(conn);
+    let req = Box::into_raw(req);
+    if err != 0 {
+        libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    } else {
+        (*req).len = iov_length(iov, count.try_into().unwrap()) + 9;
+        let sshfs_obj = retrieve_sshfs().unwrap();
+        sshfs_obj.outstanding_len += <usize as TryInto<u32>>::try_into((*req).len).unwrap();
+        while sshfs_obj.outstanding_len > sshfs_obj.max_outstanding_len {
+            libc::pthread_cond_wait(
+                &mut sshfs_obj.outstanding_cond as *mut libc::pthread_cond_t,
+                sshfs_obj.lock_ptr,
+            );
+        }
+        req_table_insert(id, req);
+        if sshfs_obj.debug != 0 {
+            libc::gettimeofday(
+                &mut (*req).start as *mut libc::timeval,
+                std::ptr::null_mut(),
+            );
+            sshfs_obj.num_sent += 1;
+            sshfs_obj.bytes_sent += (*req).len as u64;
+            eprintln!(
+                "{0:<5} {1}",
+                id,
+                core::ffi::CStr::from_ptr(type_name(ssh_type))
+                    .to_str()
+                    .unwrap()
+            );
+        }
+        libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+        err = -libc::EIO;
+        if sftp_send_iov(conn, ssh_type, id, iov, count) == -1 {
             libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
             let rmed = req_table_remove(id);
             libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
             if rmed == 0 && want_reply == 0 {
-				return err;
-			}
-		} else {
-    	    if want_reply != 0 {
-	    	    *reqp = req;
-	        }
-	        return 0;	
-		}
-	}
-	(*req).error = err;
+                return err;
+            }
+        } else {
+            if want_reply != 0 {
+                *reqp = req;
+            }
+            return 0;
+        }
+    }
+    (*req).error = err;
     if want_reply == 0 {
-		sftp_request_wait(req, ssh_type, 0, None);
-	} else {
-	    *reqp = req;
-	}
-	err
+        sftp_request_wait(Some(Box::from_raw(req)), ssh_type, 0, None);
+    } else {
+        *reqp = req;
+    }
+    err
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sftp_request(conn: *mut Conn, ssh_type: u8, buf: *const Buffer_sys,
-        expect_type: u8,
-        outbuf: Option<&mut Buffer_sys>,
-    ) -> core::ffi::c_int {
-        // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
-        let iov = libc::malloc(std::mem::size_of::<libc::iovec>()) as *mut libc::iovec;
-        let reqp = libc::malloc(std::mem::size_of::<*mut Request>()) as *mut *mut Request;
-        (*iov).iov_base = (*buf).p as *mut core::ffi::c_void;
-        (*iov).iov_len = (*buf).len;
-        let ret = sftp_request_send(conn, ssh_type, iov, 1, None, None, expect_type as core::ffi::c_uint, std::ptr::null_mut(), reqp);
-        let ret = if expect_type == 0 {
-			ret
-		} else {
-			sftp_request_wait(*reqp, ssh_type, expect_type, outbuf)
-		};
-		libc::free(iov as *mut core::ffi::c_void);
-		libc::free(reqp as *mut core::ffi::c_void);
-		ret
+pub unsafe extern "C" fn sftp_request(
+    conn: *mut Conn,
+    ssh_type: u8,
+    buf: *const Buffer_sys,
+    expect_type: u8,
+    outbuf: Option<&mut Buffer_sys>,
+) -> core::ffi::c_int {
+    // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+    let iov = libc::malloc(std::mem::size_of::<libc::iovec>()) as *mut libc::iovec;
+    let reqp = libc::malloc(std::mem::size_of::<*mut Request>()) as *mut *mut Request;
+    (*iov).iov_base = (*buf).p as *mut core::ffi::c_void;
+    (*iov).iov_len = (*buf).len;
+    let ret = sftp_request_send(
+        conn,
+        ssh_type,
+        iov,
+        1,
+        None,
+        None,
+        expect_type as core::ffi::c_uint,
+        std::ptr::null_mut(),
+        reqp,
+    );
+    let ret = if expect_type == 0 {
+        ret
+    } else {
+        sftp_request_wait(Some(Box::from_raw(*reqp)), ssh_type, expect_type, outbuf)
+    };
+    libc::free(iov as *mut core::ffi::c_void);
+    libc::free(reqp as *mut core::ffi::c_void);
+    ret
 }
 
 #[no_mangle]
@@ -764,12 +878,15 @@ pub unsafe extern "C" fn sshfs_releasedir(
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t) -> core::ffi::c_int {
+pub extern "C" fn sshfs_mkdir(
+    path: *const core::ffi::c_char,
+    mode: libc::mode_t,
+) -> core::ffi::c_int {
     let real_path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&real_path);
-	buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
-	buf.add_u32(mode);
+    buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
+    buf.add_u32(mode);
     let buf = unsafe { buf.translate_into_sys() };
     let err = unsafe {
         sftp_request(
@@ -780,11 +897,18 @@ pub extern "C" fn sshfs_mkdir(path: *const core::ffi::c_char, mode: libc::mode_t
             None,
         )
     };
-    if err == -libc::EPERM && unsafe { ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(path, libc::R_OK.try_into().unwrap()) } == 0 {
-		-libc::EEXIST
-	} else {
-		err
-	}
+    if err == -libc::EPERM
+        && unsafe {
+            ((*(retrieve_sshfs().unwrap().op)).access.unwrap())(
+                path,
+                libc::R_OK.try_into().unwrap(),
+            )
+        } == 0
+    {
+        -libc::EEXIST
+    } else {
+        err
+    }
 }
 
 #[no_mangle]
