@@ -457,6 +457,10 @@ extern "C" {
                            offset: libc::off_t) -> core::ffi::c_int;
     fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_sync_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_async_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -915,5 +919,31 @@ pub unsafe extern "C" fn sshfs_read(
 		sshfs_sync_read(sf, rbuf, size, offset)
 	} else {
 		sshfs_async_read(sf, rbuf, size, offset)
+	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_write(
+    _path: *const core::ffi::c_char,
+    wbuf: *mut core::ffi::c_char,
+    size: usize,
+    offset: libc::off_t,
+    fi: &mut fuse_file_info,
+) -> core::ffi::c_int {
+	let sf = get_sshfs_file(fi);
+	if sshfs_file_is_conn(sf) == 0 {
+		-libc::EIO
+	} else {
+		sshfs_inc_modifver();
+		let ret = if retrieve_sshfs().unwrap().sync_write != 0 && (*sf).write_error == 0 {
+		    sshfs_sync_write(sf, wbuf, size, offset)
+	    } else {
+		    sshfs_async_write(sf, wbuf, size, offset)
+		};
+		if ret == 0 {
+			size as core::ffi::c_int
+		} else {
+			ret
+		}
 	}
 }
