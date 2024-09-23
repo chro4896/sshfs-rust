@@ -552,7 +552,6 @@ pub extern "C" fn sshfs_access(
         }
         ret
     }
->>>>>>> refactoring-for-rust
 }
 
 #[no_mangle]
@@ -764,7 +763,7 @@ pub extern "C" fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *
 	let mut err = 0;
 	while err == 0 {
 		let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
-		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(*name)) };
+		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(name)) };
 		if err == 0 {
 			unsafe { buf_get_entries(name, buf, filler) };
 			unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
