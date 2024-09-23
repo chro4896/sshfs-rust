@@ -962,7 +962,7 @@ static int buf_get_statvfs(struct buffer *buf, struct statvfs *stbuf)
 	return 0;
 }
 
-static int buf_get_entries(struct buffer *buf, void *dbuf,
+int buf_get_entries(struct buffer *buf, void *dbuf,
                            fuse_fill_dir_t filler)
 {
 	uint32_t count;
@@ -2284,23 +2284,7 @@ int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 }
 
 int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
-			     void *buf, off_t offset, fuse_fill_dir_t filler)
-{
-	int err;
-	assert(offset == 0);
-	do {
-		struct buffer name;
-		err = sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, &name);
-		if (!err) {
-			err = buf_get_entries(&name, buf, filler);
-			buf_free(&name);
-		}
-	} while (!err);
-	if (err == MY_EOF)
-		err = 0;
-
-	return err;
-}
+			     void *buf, off_t offset, fuse_fill_dir_t filler);
 
 int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
