@@ -344,7 +344,7 @@ struct List_head {
 }
 
 #[repr(C)]
-struct SshfsFile {
+pub struct SshfsFile {
     handle: Buffer_sys,
     write_reqs: List_head,
     write_finished: libc::pthread_cond_t,
@@ -447,7 +447,7 @@ pub unsafe extern "C" fn request_free(req: *mut Request) {
 #[no_mangle]
 pub extern "C" fn malloc_conn() -> *mut Conn {
     let conn_ptr = unsafe { libc::calloc(1, std::mem::size_of::<Conn>()) } as *mut Conn;
-    if conn_ptr as *mut core::ffi::c_void == std::ptr::null_mut() {
+    if conn_ptr.is_null() {
         panic!("sshfs: memory allocation failed");
     };
     // Default が実装されていないため、一旦malloc したものをclone する
@@ -585,7 +585,7 @@ pub unsafe extern "C" fn start_processing_thread(conn: *mut Conn) -> core::ffi::
             libc::pthread_sigmask(
                 libc::SIG_BLOCK,
                 oldset,
-                std::ptr::null_mut() as *mut libc::sigset_t,
+                std::ptr::null_mut(),
             );
             (*conn).processing_thread_started = 1;
             libc::free(newset as *mut core::ffi::c_void);
@@ -731,7 +731,7 @@ pub unsafe extern "C" fn sftp_request_send(
     req.end_func = end_func;
     req.data = data;
     libc::sem_init(&mut (req.ready) as *mut libc::sem_t, 0, 0);
-    req.reply.p = std::ptr::null() as *const u8;
+    req.reply.p = std::ptr::null();
     req.reply.len = 0;
     req.reply.size = 0;
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
@@ -740,7 +740,7 @@ pub unsafe extern "C" fn sftp_request_send(
     }
     let id = sftp_get_id();
     req.id = id;
-    req.conn = conn.clone();
+    req.conn = conn;
     (*(req.conn)).req_count += 1;
     let mut err = start_processing_thread(conn);
     let req = Box::into_raw(req);
@@ -893,7 +893,7 @@ pub unsafe extern "C" fn sshfs_releasedir(
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
     let mut handle = Box::from_raw(fi.fh as *mut DirHandle);
-    let err = sftp_request(handle.conn, SSH_FXP_CLOSE, &mut handle.buf, 0, None);
+    let err = sftp_request(handle.conn, SSH_FXP_CLOSE, &handle.buf, 0, None);
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     (*(handle.conn)).dir_count -= 1;
     libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
