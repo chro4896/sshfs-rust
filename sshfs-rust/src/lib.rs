@@ -433,16 +433,6 @@ extern "C" {
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut Request);
     fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
-<<<<<<< HEAD
-=======
-    fn sftp_request(
-        conn: *mut Conn,
-        ssh_op_type: u8,
-        buf: *const Buffer_sys,
-        expect_type: u8,
-        outbuf: Option<&mut Buffer_sys>,
-    ) -> core::ffi::c_int;
->>>>>>> convert-sshfs_write-into-rust
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
     fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
