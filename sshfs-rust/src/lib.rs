@@ -892,7 +892,7 @@ pub unsafe extern "C" fn sshfs_releasedir(
     _path: *const core::ffi::c_char,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
-    let mut handle = Box::from_raw(fi.fh as *mut DirHandle);
+    let handle = Box::from_raw(fi.fh as *mut DirHandle);
     let err = sftp_request(handle.conn, SSH_FXP_CLOSE, &handle.buf, 0, None);
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     (*(handle.conn)).dir_count -= 1;
