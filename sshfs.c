@@ -1589,7 +1589,7 @@ static void close_conn(struct conn *conn)
 	}
 }
 
-static void *process_requests(void *data_)
+void *process_requests(void *data_)
 {
 	(void) data_;
 	struct conn *conn = data_;
@@ -1753,7 +1753,7 @@ int sftp_error_to_errno(uint32_t error)
 	}
 }
 
-static void sftp_detect_uid(struct conn *conn)
+void sftp_detect_uid(struct conn *conn)
 {
 	int flags;
 	uint32_t id = sftp_get_id();
@@ -1872,7 +1872,7 @@ out:
 	return err;
 }
 
-static int connect_remote(struct conn *conn)
+int connect_remote(struct conn *conn)
 {
 	int err;
 
@@ -1895,43 +1895,7 @@ static int connect_remote(struct conn *conn)
 	return err;
 }
 
-int start_processing_thread(struct conn *conn)
-{
-	int err;
-	pthread_t thread_id;
-	sigset_t oldset;
-	sigset_t newset;
-
-	if (conn->processing_thread_started)
-		return 0;
-
-	if (conn->rfd == -1) {
-		err = connect_remote(conn);
-		if (err)
-			return -EIO;
-	}
-
-	if (sshfs.detect_uid) {
-		sftp_detect_uid(conn);
-		sshfs.detect_uid = 0;
-	}
-
-	sigemptyset(&newset);
-	sigaddset(&newset, SIGTERM);
-	sigaddset(&newset, SIGINT);
-	sigaddset(&newset, SIGHUP);
-	sigaddset(&newset, SIGQUIT);
-	pthread_sigmask(SIG_BLOCK, &newset, &oldset);
-	err = pthread_create(&thread_id, NULL, process_requests, conn);
-	if (err) {
-		fprintf(stderr, "failed to create thread: %s\n", strerror(err));
-		return -EIO;
-	}
-	pthread_detach(thread_id);
-	pthread_sigmask(SIG_SETMASK, &oldset, NULL);
-	conn->processing_thread_started = 1;
-	return 0;
-}
+int start_processing_thread(struct conn *conn);
 
 static void *sshfs_init(struct fuse_conn_info *conn,
                         struct fuse_config *cfg)
@@ -2778,7 +2742,7 @@ out:
 	return res;
 }
 
-static int sshfs_sync_read(struct sshfs_file *sf, char *buf, size_t size,
+int sshfs_sync_read(struct sshfs_file *sf, char *buf, size_t size,
                            off_t offset)
 {
 	struct read_chunk *chunk;
@@ -2811,7 +2775,7 @@ static struct read_chunk *search_read_chunk(struct sshfs_file *sf, off_t offset)
 		return NULL;
 }
 
-static int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
+int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
                             off_t offset)
 {
 	int res = 0;
@@ -2861,20 +2825,8 @@ static int sshfs_async_read(struct sshfs_file *sf, char *rbuf, size_t size,
 	return total;
 }
 
-static int sshfs_read(const char *path, char *rbuf, size_t size, off_t offset,
-                      struct fuse_file_info *fi)
-{
-	struct sshfs_file *sf = get_sshfs_file(fi);
-	(void) path;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	if (sshfs.sync_read)
-		return sshfs_sync_read(sf, rbuf, size, offset);
-	else
-		return sshfs_async_read(sf, rbuf, size, offset);
-}
+int sshfs_read(const char *path, char *rbuf, size_t size, off_t offset,
+                      struct fuse_file_info *fi);
 
 static void sshfs_write_begin(struct request *req)
 {
@@ -2901,7 +2853,7 @@ static void sshfs_write_end(struct request *req)
 	pthread_cond_broadcast(&sf->write_finished);
 }
 
-static int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 			     size_t size, off_t offset)
 {
 	int err = 0;
@@ -2958,7 +2910,7 @@ static void sshfs_sync_write_end(struct request *req)
 }
 
 
-static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 			    size_t size, off_t offset)
 {
 	int err = 0;
@@ -3000,26 +2952,8 @@ static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-static int sshfs_write(const char *path, const char *wbuf, size_t size,
-                       off_t offset, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-
-	(void) path;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	sshfs_inc_modifver();
-
-	if (!sshfs.sync_write && !sf->write_error)
-		err = sshfs_async_write(sf, wbuf, size, offset);
-	else
-		err = sshfs_sync_write(sf, wbuf, size, offset);
-
-	return err ? err : (int) size;
-}
+int sshfs_write(const char *path, const char *wbuf, size_t size,
+                       off_t offset, struct fuse_file_info *fi);
 
 static int sshfs_ext_statvfs(const char *path, struct statvfs *stbuf)
 {

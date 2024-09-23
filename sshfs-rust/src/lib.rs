@@ -462,7 +462,6 @@ extern "C" {
     fn get_conn(sshfs_file: *const core::ffi::c_void, path: *const core::ffi::c_void) -> *mut Conn;
     fn retrieve_sshfs() -> Option<&'static mut sshfs>;
     fn sftp_get_id() -> u32;
-    fn start_processing_thread(conn: *mut Conn) -> core::ffi::c_int;
     fn iov_length(iov: *mut libc::iovec, nr_segs: core::ffi::c_ulong) -> usize;
     fn type_name(ssh_type: u8) -> *const core::ffi::c_char;
     fn sftp_send_iov(
@@ -486,6 +485,17 @@ extern "C" {
         offset: libc::off_t,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
+    fn sshfs_sync_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_sync_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn sshfs_async_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int;
+    fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
+    fn sftp_detect_uid(conn: *mut Conn);
+    fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -517,6 +527,46 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
         real_path.push(b'.');
     }
     real_path
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn start_processing_thread (conn: *mut Conn) -> core::ffi::c_int {
+	if (*conn).processing_thread_started != 0 {
+		0
+	} else if (*conn).rfd == -1 && connect_remote(conn) != 0 {
+		-libc::EIO
+	} else {
+		if retrieve_sshfs().unwrap().detect_uid != 0 {
+			sftp_detect_uid(conn);
+			retrieve_sshfs().unwrap().detect_uid = 0;
+		}
+		// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+		let newset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		let oldset = libc::malloc(std::mem::size_of::<libc::sigset_t>()) as *mut libc::sigset_t;
+		libc::sigemptyset(newset);
+		libc::sigaddset(newset, libc::SIGTERM);
+		libc::sigaddset(newset, libc::SIGINT);
+		libc::sigaddset(newset, libc::SIGHUP);
+		libc::sigaddset(newset, libc::SIGQUIT);
+		libc::pthread_sigmask(libc::SIG_BLOCK, newset, oldset);
+		let conn_org = std::sync::Arc::from_raw(conn);
+		let conn_clone = conn_org.clone();
+		let conn = std::sync::Arc::into_raw(conn_org) as *mut Conn;
+		let builder = std::thread::Builder::new();
+		let handle = builder.spawn(move || { let conn_ptr = std::sync::Arc::into_raw(conn_clone); process_requests(conn_ptr as *mut core::ffi::c_void); std::sync::Arc::from_raw(conn_ptr) });
+		if let Err(err) = handle {
+			eprintln!("failed to create thread: {}", err.kind());
+	    	libc::free(newset as *mut core::ffi::c_void);
+		    libc::free(oldset as *mut core::ffi::c_void);
+			-libc::EIO
+		} else {
+    		libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut() as *mut libc::sigset_t);
+    		(*conn).processing_thread_started = 1;
+	    	libc::free(newset as *mut core::ffi::c_void);
+		    libc::free(oldset as *mut core::ffi::c_void);
+		    0
+		}
+	}
 }
 
 #[no_mangle]
@@ -974,4 +1024,48 @@ pub extern "C" fn sshfs_ext_posix_rename(
             None,
         )
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_read(
+    _path: *const core::ffi::c_char,
+    rbuf: *mut core::ffi::c_char,
+    size: usize,
+    offset: libc::off_t,
+    fi: &mut fuse_file_info,
+) -> core::ffi::c_int {
+	let sf = get_sshfs_file(fi);
+	if sshfs_file_is_conn(sf) == 0 {
+		-libc::EIO
+	} else if retrieve_sshfs().unwrap().sync_read != 0 {
+		sshfs_sync_read(sf, rbuf, size, offset)
+	} else {
+		sshfs_async_read(sf, rbuf, size, offset)
+	}
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_write(
+    _path: *const core::ffi::c_char,
+    wbuf: *mut core::ffi::c_char,
+    size: usize,
+    offset: libc::off_t,
+    fi: &mut fuse_file_info,
+) -> core::ffi::c_int {
+	let sf = get_sshfs_file(fi);
+	if sshfs_file_is_conn(sf) == 0 {
+		-libc::EIO
+	} else {
+		sshfs_inc_modifver();
+		let ret = if retrieve_sshfs().unwrap().sync_write != 0 && (*sf).write_error == 0 {
+		    sshfs_sync_write(sf, wbuf, size, offset)
+	    } else {
+		    sshfs_async_write(sf, wbuf, size, offset)
+		};
+		if ret == 0 {
+			size as core::ffi::c_int
+		} else {
+			ret
+		}
+	}
 }
