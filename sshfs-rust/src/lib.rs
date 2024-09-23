@@ -883,9 +883,9 @@ pub unsafe extern "C" fn sshfs_write(
 	} else {
 		sshfs_inc_modifver();
 		let ret = if retrieve_sshfs().unwrap().sync_write != 0 && (*sf).write_error == 0 {
-		    sshfs_sync_read(sf, rbuf, size, offset)
+		    sshfs_sync_write(sf, wbuf, size, offset)
 	    } else {
-		    sshfs_async_read(sf, rbuf, size, offset)
+		    sshfs_async_write(sf, wbuf, size, offset)
 		};
 		if ret == 0 {
 			size as core::ffi::c_int
