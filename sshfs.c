@@ -2943,7 +2943,7 @@ static void sshfs_write_end(struct request *req)
 	pthread_cond_broadcast(&sf->write_finished);
 }
 
-static int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 			     size_t size, off_t offset)
 {
 	int err = 0;
@@ -3000,7 +3000,7 @@ static void sshfs_sync_write_end(struct request *req)
 }
 
 
-static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 			    size_t size, off_t offset)
 {
 	int err = 0;
@@ -3042,26 +3042,8 @@ static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-static int sshfs_write(const char *path, const char *wbuf, size_t size,
-                       off_t offset, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-
-	(void) path;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	sshfs_inc_modifver();
-
-	if (!sshfs.sync_write && !sf->write_error)
-		err = sshfs_async_write(sf, wbuf, size, offset);
-	else
-		err = sshfs_sync_write(sf, wbuf, size, offset);
-
-	return err ? err : (int) size;
-}
+int sshfs_write(const char *path, const char *wbuf, size_t size,
+                       off_t offset, struct fuse_file_info *fi);
 
 static int sshfs_ext_statvfs(const char *path, struct statvfs *stbuf)
 {
