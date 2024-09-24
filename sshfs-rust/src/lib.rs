@@ -442,6 +442,19 @@ pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
 }
 
 #[no_mangle]
+pub extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut core::ffi::c_void) {
+	let key = unsafe { core::ffi::CStr::from_ptr(key) }:
+	let key_org = key.to_bytes();
+	let key = Vec::new();
+	for c in key_org.iter() {
+		key.push(c);
+	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let conntab = unsafe { &(*sshfs_ref.conntab) };
+    conntab.insert(key, val);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn get_sshfs_file(fi: *const fuse_file_info) -> *mut SshfsFile {
     (*fi).fh as *mut SshfsFile
 }
