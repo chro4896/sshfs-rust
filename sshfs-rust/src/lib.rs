@@ -199,7 +199,7 @@ struct sshfs {
     host: *mut core::ffi::c_char,
     base_path: *mut core::ffi::c_char,
     reqtab: *mut std::collections::HashMap<u32, *mut Request>,
-    conntab: *mut core::ffi::c_void,
+    conntab: *mut std::collections::HashMap<Vec<u8>, *mut core::ffi::c_void>,
     lock: libc::pthread_mutex_t,
     lock_ptr: *mut libc::pthread_mutex_t,
     randseed: core::ffi::c_uint,
@@ -405,6 +405,40 @@ pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn)
     for key in del_list {
         reqtab.remove(key);
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn conn_table_new() -> *mut std::collections::HashMap<Vec<u8>, *mut core::ffi::c_void> {
+    Box::into_raw(Box::default())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn conn_table_lookup(key: *const core::ffi::c_char) -> *mut core::ffi::c_void {
+	let key = unsafe { core::ffi::CStr::from_ptr(key) }:
+	let key_org = key.to_bytes();
+	let key = Vec::new();
+	for c in key_org.iter() {
+		key.push(c);
+	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let conntab = unsafe { &(*sshfs_ref.conntab) };
+    match conntab.get(&key) {
+        Some(ce) => *ce,
+        None => std::ptr::null_mut(),
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
+	let key = unsafe { core::ffi::CStr::from_ptr(key) }:
+	let key_org = key.to_bytes();
+	let key = Vec::new();
+	for c in key_org.iter() {
+		key.push(c);
+	}
+    let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
+    let conntab = unsafe { &(*sshfs_ref.conntab) };
+    conntab.remove(&key);
 }
 
 #[no_mangle]
