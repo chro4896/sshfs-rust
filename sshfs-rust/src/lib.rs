@@ -472,13 +472,6 @@ extern "C" {
         iov: *mut libc::iovec,
         count: usize,
     ) -> core::ffi::c_int;
-    fn sftp_readdir_sync(
-        conn: *mut Conn,
-        handle: &Buffer_sys,
-        buf: *mut core::ffi::c_void,
-        offset: libc::off_t,
-        filler: *mut core::ffi::c_void,
-    ) -> core::ffi::c_int;
     fn sftp_readdir_async(
         conn: *mut Conn,
         handle: &Buffer_sys,
@@ -486,7 +479,6 @@ extern "C" {
         offset: libc::off_t,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
-    fn sftp_readdir_async(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
     fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
@@ -763,7 +755,7 @@ pub extern "C" fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *
 	let mut err = 0;
 	while err == 0 {
 		let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
-		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(name)) };
+		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(&mut (*name))) };
 		if err == 0 {
 			unsafe { buf_get_entries(name, buf, filler) };
 			unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
