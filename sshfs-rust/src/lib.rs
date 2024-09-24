@@ -416,7 +416,7 @@ pub unsafe extern "C" fn conn_table_new() -> *mut std::collections::HashMap<Vec<
 pub unsafe extern "C" fn conn_table_lookup(key: *const core::ffi::c_char) -> *mut core::ffi::c_void {
 	let key = unsafe { core::ffi::CStr::from_ptr(key) };
 	let key_org = key.to_bytes();
-	let key = Vec::new();
+	let mut key = Vec::new();
 	for c in key_org.iter() {
 		key.push(*c);
 	}
@@ -432,12 +432,12 @@ pub unsafe extern "C" fn conn_table_lookup(key: *const core::ffi::c_char) -> *mu
 pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
 	let key = unsafe { core::ffi::CStr::from_ptr(key) };
 	let key_org = key.to_bytes();
-	let key = Vec::new();
+	let mut key = Vec::new();
 	for c in key_org.iter() {
 		key.push(*c);
 	}
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-    let conntab = unsafe { &(*sshfs_ref.conntab) };
+    let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.remove(&key);
 }
 
@@ -445,12 +445,12 @@ pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
 pub extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut core::ffi::c_void) {
 	let key = unsafe { core::ffi::CStr::from_ptr(key) };
 	let key_org = key.to_bytes();
-	let key = Vec::new();
+	let mut key = Vec::new();
 	for c in key_org.iter() {
 		key.push(*c);
 	}
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
-    let conntab = unsafe { &(*sshfs_ref.conntab) };
+    let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.insert(key, val);
 }
 
