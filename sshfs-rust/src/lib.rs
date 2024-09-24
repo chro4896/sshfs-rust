@@ -10,6 +10,7 @@ const SSH_FXP_RMDIR: u8 = 15;
 const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
 const SSH_FXP_HANDLE: u8 = 102;
+const SSH_FXP_NAME: u8 = 104;
 const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FILEXFER_ATTR_PERMISSIONS: u32 = 4;
@@ -470,13 +471,6 @@ extern "C" {
         iov: *mut libc::iovec,
         count: usize,
     ) -> core::ffi::c_int;
-    fn sftp_readdir_sync(
-        conn: *mut Conn,
-        handle: &Buffer_sys,
-        buf: *mut core::ffi::c_void,
-        offset: libc::off_t,
-        filler: *mut core::ffi::c_void,
-    ) -> core::ffi::c_int;
     fn sftp_readdir_async(
         conn: *mut Conn,
         handle: &Buffer_sys,
@@ -495,6 +489,7 @@ extern "C" {
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
     fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
+    fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -802,6 +797,26 @@ pub unsafe extern "C" fn sftp_request(
     libc::free(iov as *mut core::ffi::c_void);
     libc::free(reqp as *mut core::ffi::c_void);
     ret
+}
+
+#[no_mangle]
+pub extern "C" fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int {
+	assert_eq!(0, offset);
+	let mut err = 0;
+	while err == 0 {
+		let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
+		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(&mut (*name))) };
+		if err == 0 {
+			unsafe { buf_get_entries(name, buf, filler) };
+			unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
+		}
+		unsafe { libc::free(name as *mut core::ffi::c_void) };
+	}
+	if err == MY_EOF {
+		0
+	} else {
+		err
+	}
 }
 
 #[no_mangle]
