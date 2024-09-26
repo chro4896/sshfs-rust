@@ -2780,7 +2780,7 @@ int sshfs_open_common(const char *path, mode_t mode,
 	return err;
 }
 
-static int sshfs_open(const char *path, struct fuse_file_info *fi);
+int sshfs_open(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_flush(const char *path, struct fuse_file_info *fi)
 {
