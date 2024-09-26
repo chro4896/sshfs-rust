@@ -19,7 +19,6 @@ extern "C" {
     fn buf_get_uint32(buf: *mut core::ffi::c_void, cal: *mut u32) -> core::ffi::c_int;
     fn sftp_error_to_errno(errno: u32) -> core::ffi::c_int;
     fn request_free(req: *mut core::ffi::c_void);
-    
 }
 
 #[repr(C)]
@@ -286,6 +285,7 @@ extern "C" {
         outbuf: *mut Buffer_sys,
     ) -> core::ffi::c_int;
     fn retrieve_sshfs() -> Option<&'static sshfs>;
+    fn sshfs_open_common(path: *const core::ffi::c_char, mode: libc::mode_t, fi: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -380,4 +380,12 @@ pub extern "C" fn sshfs_link(
     } else {
         -(libc::ENOSYS as core::ffi::c_int)
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_open(
+    path: *const core::ffi::c_char,
+    fi: *mut core::ffi::c_void,
+) -> core::ffi::c_int {
+	sshfs_open_common(path, 0, fi)
 }
