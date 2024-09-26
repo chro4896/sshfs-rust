@@ -345,6 +345,7 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
 	unsafe { sftp_request(get_conn(std::ptr::null_mut(), std::ptr::null_mut()), SSH_FXP_RMDIR, &buf, SSH_FXP_STATUS, std::ptr::null_mut()) }
 }
 
+#[no_mangle]
 pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
     for idx in 0..length {
         *s_ptr.offset(idx.try_into().unwrap()) =
@@ -380,15 +381,6 @@ pub extern "C" fn sshfs_link(
     } else {
         -(libc::ENOSYS as core::ffi::c_int)
     }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
-    for idx in 0..length {
-        *s_ptr.offset(idx.try_into().unwrap()) =
-            (b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10);
-    }
-    *s_ptr.offset(length.try_into().unwrap()) = 0;
 }
 
 #[no_mangle]
