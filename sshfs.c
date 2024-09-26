@@ -2364,56 +2364,7 @@ int sshfs_unlink(const char *path);
 
 int sshfs_rmdir(const char *path);
 
-int sshfs_do_rename(const char *from, const char *to);
-
-int sshfs_ext_posix_rename(const char *from, const char *to);
-
-void random_string(char *str, int length);
-
-static int sshfs_rename(const char *from, const char *to, unsigned int flags)
-{
-	int err;
-	struct conntab_entry *ce;
-
-	if(flags != 0)
-		return -EINVAL;
-
-	if (sshfs.ext_posix_rename)
-		err = sshfs_ext_posix_rename(from, to);
-	else
-		err = sshfs_do_rename(from, to);
-	if (err == -EPERM && sshfs.rename_workaround) {
-		size_t tolen = strlen(to);
-		if (tolen + RENAME_TEMP_CHARS < PATH_MAX) {
-			int tmperr;
-			char totmp[PATH_MAX];
-			strcpy(totmp, to);
-			random_string(totmp + tolen, RENAME_TEMP_CHARS);
-			tmperr = sshfs_do_rename(to, totmp);
-			if (!tmperr) {
-				err = sshfs_do_rename(from, to);
-				if (!err)
-					err = sshfs_unlink(totmp);
-				else
-					sshfs_do_rename(totmp, to);
-			}
-		}
-	}
-	if (err == -EPERM && sshfs.renamexdev_workaround)
-		err = -EXDEV;
-
-	if (!err && sshfs.max_conns > 1) {
-		pthread_mutex_lock(&sshfs.lock);
-		ce = g_hash_table_lookup(sshfs.conntab, from);
-		if (ce != NULL) {
-			g_hash_table_replace(sshfs.conntab, g_strdup(to), ce);
-			g_hash_table_remove(sshfs.conntab, from);
-		}
-		pthread_mutex_unlock(&sshfs.lock);
-	}
-
-	return err;
-}
+int sshfs_rename(const char *from, const char *to, unsigned int flags);
 
 int sshfs_link(const char *from, const char *to);
 
