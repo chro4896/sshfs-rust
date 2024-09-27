@@ -967,7 +967,7 @@ static int buf_get_statvfs(struct buffer *buf, struct statvfs *stbuf)
 	return 0;
 }
 
-static int buf_get_entries(struct buffer *buf, void *dbuf,
+int buf_get_entries(struct buffer *buf, void *dbuf,
                            fuse_fill_dir_t filler)
 {
 	uint32_t count;
@@ -2135,23 +2135,7 @@ int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 }
 
 int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
-			     void *buf, off_t offset, fuse_fill_dir_t filler)
-{
-	int err;
-	assert(offset == 0);
-	do {
-		struct buffer name;
-		err = sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, &name);
-		if (!err) {
-			err = buf_get_entries(&name, buf, filler);
-			buf_free(&name);
-		}
-	} while (!err);
-	if (err == MY_EOF)
-		err = 0;
-
-	return err;
-}
+			     void *buf, off_t offset, fuse_fill_dir_t filler);
 
 int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
@@ -2218,57 +2202,7 @@ int sshfs_unlink(const char *path);
 
 int sshfs_rmdir(const char *path);
 
-int sshfs_do_rename(const char *from, const char *to);
-
-int sshfs_ext_posix_rename(const char *from, const char *to);
-
-void random_string(char *str, int length);
-
-static int sshfs_rename(const char *from, const char *to, unsigned int flags)
-{
-	int err;
-	struct conntab_entry *ce;
-
-	if(flags != 0)
-		return -EINVAL;
-
-	if (sshfs.ext_posix_rename)
-		err = sshfs_ext_posix_rename(from, to);
-	else
-		err = sshfs_do_rename(from, to);
-	if (err == -EPERM && sshfs.rename_workaround) {
-		size_t tolen = strlen(to);
-		if (tolen + RENAME_TEMP_CHARS < PATH_MAX) {
-			int tmperr;
-			char totmp[PATH_MAX];
-			strcpy(totmp, to);
-			random_string(totmp + tolen, RENAME_TEMP_CHARS);
-			tmperr = sshfs_do_rename(to, totmp);
-			if (!tmperr) {
-				err = sshfs_do_rename(from, to);
-				if (!err)
-					err = sshfs_unlink(totmp);
-				else
-					sshfs_do_rename(totmp, to);
-			}
-		}
-	}
-	if (err == -EPERM && sshfs.renamexdev_workaround)
-		err = -EXDEV;
-
-	if (!err && sshfs.max_conns > 1) {
-		pthread_mutex_lock(&sshfs.lock);
-		ce = conn_table_lookup(from);
-		if (ce != NULL) {
-			conn_table_remove(to);
-			conn_table_insert(to, ce);
-			conn_table_remove(from);
-		}
-		pthread_mutex_unlock(&sshfs.lock);
-	}
-
-	return err;
-}
+int sshfs_rename(const char *from, const char *to, unsigned int flags);
 
 int sshfs_link(const char *from, const char *to);
 
