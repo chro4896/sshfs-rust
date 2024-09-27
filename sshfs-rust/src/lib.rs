@@ -1018,8 +1018,8 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
 }
 
 unsafe fn sshfs_do_rename(
-    from_path: *mut core::ffi::c_char,
-    to_path: *mut core::ffi::c_char,
+    from_path: *const core::ffi::c_char,
+    to_path: *const core::ffi::c_char,
 ) -> core::ffi::c_int {
     let from_path = get_real_path(from_path);
     let to_path = get_real_path(to_path);
@@ -1092,13 +1092,13 @@ pub unsafe extern "C" fn sshfs_rename(
 			}
 			if len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
 				let totmp_ptr = totmp.as_mut_ptr();
-				unsafe { random_string(totmp_ptr.offset(len), RENAME_TEMP_CHARS) };
-				if sshfs_do_rename(to_path, totmp) == 0 {
+				unsafe { random_string(totmp_ptr.offset(len) as *mut core::ffi::c_char, RENAME_TEMP_CHARS) };
+				if sshfs_do_rename(to_path, totmp_ptr as *const core::ffi::c_char) == 0 {
 					err = sshfs_do_rename(from_path, to_path);
 					if err == 0 {
-						err = sshfs_unlink(totmp);
+						err = sshfs_unlink(totmp_ptr as *const core::ffi::c_char);
 					} else {
-						sshfs_do_rename(totmp, to_path);
+						sshfs_do_rename(totmp_ptr as *const core::ffi::c_char, to_path);
 					}
 				}
 			}
