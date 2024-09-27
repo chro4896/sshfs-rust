@@ -1017,7 +1017,7 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
     }
 }
 
-fn sshfs_do_rename(
+unsafe fn sshfs_do_rename(
     from_path: *mut core::ffi::c_char,
     to_path: *mut core::ffi::c_char,
 ) -> core::ffi::c_int {
@@ -1038,7 +1038,7 @@ fn sshfs_do_rename(
     }
 }
 
-fn sshfs_ext_posix_rename(
+unsafe fn sshfs_ext_posix_rename(
     from_path: *const core::ffi::c_char,
     to_path: *const core::ffi::c_char,
 ) -> core::ffi::c_int {
@@ -1069,7 +1069,7 @@ unsafe fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int)
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_rename(
+pub unsafe extern "C" fn sshfs_rename(
     from_path: *const core::ffi::c_char,
     to_path: *const core::ffi::c_char,
     flags: core::ffi::c_uint,
@@ -1086,19 +1086,19 @@ pub extern "C" fn sshfs_rename(
 		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 {
 			let mut len = 0;
 			let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
-			while unsafe{ *(to.offset(len)) } as u8 != 0 {
-				totmp.push(unsafe{ *(to.offset(len)) } as u8);
+			while unsafe{ *(to_path.offset(len)) } as u8 != 0 {
+				totmp.push(unsafe{ *(to_path.offset(len)) } as u8);
 				len += 1;
 			}
 			if len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
 				let totmp_ptr = totmp.as_mut_ptr();
 				unsafe { random_string(totmp_ptr.offset(len), RENAME_TEMP_CHARS) };
-				if sshfs_do_rename(to, totmp) == 0 {
-					err = sshfs_do_rename(from, to);
+				if sshfs_do_rename(to_path, totmp) == 0 {
+					err = sshfs_do_rename(from_path, to_path);
 					if err == 0 {
 						err = sshfs_unlink(totmp);
 					} else {
-						sshfs_do_rename(totmp, to);
+						sshfs_do_rename(totmp, to_path);
 					}
 				}
 			}
@@ -1109,6 +1109,11 @@ pub extern "C" fn sshfs_rename(
 		if err == 0 && sshfs_ref.max_conns > 1 {
             unsafe {
 				libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
+				let ce = conn_table_lookup(from_path);
+				if !ce.is_null() {
+					conn_table_insert(to_path, ce);
+					conn_table_remove(from_path);
+				}
 				libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
 			}
 		}
