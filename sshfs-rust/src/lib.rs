@@ -901,6 +901,7 @@ pub extern "C" fn sshfs_opendir(
     path: *const core::ffi::c_char,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
+	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -971,6 +972,7 @@ pub extern "C" fn sshfs_mkdir(
     path: *const core::ffi::c_char,
     mode: libc::mode_t,
 ) -> core::ffi::c_int {
+	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let real_path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&real_path);
@@ -1002,6 +1004,7 @@ pub extern "C" fn sshfs_mkdir(
 
 #[no_mangle]
 pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -1019,6 +1022,7 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -1038,7 +1042,9 @@ unsafe fn sshfs_do_rename(
     from_path: *const core::ffi::c_char,
     to_path: *const core::ffi::c_char,
 ) -> core::ffi::c_int {
+	let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
     let from_path = get_real_path(from_path);
+	let to_path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let to_path = get_real_path(to_path);
     let mut buf = Buffer::new(0);
     buf.add_str(&from_path);
@@ -1059,7 +1065,9 @@ unsafe fn sshfs_ext_posix_rename(
     from_path: *const core::ffi::c_char,
     to_path: *const core::ffi::c_char,
 ) -> core::ffi::c_int {
+	let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
     let from_path = get_real_path(from_path);
+	let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
     let to_path = get_real_path(to_path);
     let mut buf = Buffer::new(0);
     buf.add_str(SFTP_EXT_POSIX_RENAME.as_bytes());
@@ -1146,7 +1154,9 @@ pub extern "C" fn sshfs_link(
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
 
     if sshfs_ref.ext_hardlink != 0 && sshfs_ref.disable_hardlink == 0 {
+	    let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
         let from_path = get_real_path(from_path);
+	    let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
         let to_path = get_real_path(to_path);
         let mut buf = Buffer::new(0);
         buf.add_str(SFTP_EXT_HARDLINK.as_bytes());
