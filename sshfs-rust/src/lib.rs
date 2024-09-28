@@ -1081,7 +1081,7 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
     }
 }
 
-unsafe fn sshfs_do_rename(
+fn sshfs_do_rename(
     from_path: &[u8],
     to_path: &[u8],
 ) -> core::ffi::c_int {
