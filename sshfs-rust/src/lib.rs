@@ -1085,12 +1085,10 @@ fn sshfs_ext_posix_rename(
     }
 }
 
-unsafe fn random_string(s_ptr: *mut core::ffi::c_char, length: core::ffi::c_int) {
+fn random_string(s: mut Vec<u8>, length: core::ffi::c_int) {
     for idx in 0..length {
-        *s_ptr.offset(idx.try_into().unwrap()) =
-            (b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10);
+		s.push((b'0' as core::ffi::c_char) + rand::thread_rng().gen_range(0..10));
     }
-    *s_ptr.offset(length.try_into().unwrap()) = 0;
 }
 
 fn sshfs_rename_body(
@@ -1109,7 +1107,7 @@ fn sshfs_rename_body(
 		};
 		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 && len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
 			let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
-			totmp.extend(&to_path);
+			totmp.extend(to_path);
 			random_string(totmp, RENAME_TEMP_CHARS);
 			if sshfs_do_rename(to_path, &totmp) == 0 {
 				err = sshfs_do_rename(from_path, to_path);
