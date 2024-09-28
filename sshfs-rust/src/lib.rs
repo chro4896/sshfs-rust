@@ -1,16 +1,20 @@
 use rand::Rng;
 
+const SSH_FXP_OPEN: u8 = 3;
 const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_LSTAT: u8 = 7;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
 const SSH_FXP_MKDIR: u8 = 14;
 const SSH_FXP_RMDIR: u8 = 15;
+const SSH_FXP_STAT: u8 = 17;
 const SSH_FXP_RENAME: u8 = 18;
 const SSH_FXP_STATUS: u8 = 101;
 const SSH_FXP_HANDLE: u8 = 102;
 const SSH_FXP_NAME: u8 = 104;
+const SSH_FXP_ATTRS: u8 = 105;
 const SSH_FXP_EXTENDED: u8 = 200;
 
 const SSH_FILEXFER_ATTR_PERMISSIONS: u32 = 4;
@@ -18,6 +22,13 @@ const SSH_FILEXFER_ATTR_PERMISSIONS: u32 = 4;
 const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
+
+const SSH_FXF_READ: u32 = (1<<0);
+const SSH_FXF_WRITE: u32 = (1<<1);
+const SSH_FXF_APPEND: u32 = (1<<2);
+const SSH_FXF_CREAT: u32 = (1<<3);
+const SSH_FXF_TRUNC: u32 = (1<<4);
+const SSH_FXF_EXCL: u32 = (1<<5);
 
 const SFTP_EXT_POSIX_RENAME: &str = "posix-rename@openssh.com";
 const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
@@ -555,7 +566,11 @@ extern "C" {
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
     fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
+<<<<<<< HEAD
     fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
+=======
+    fn sshfs_open_common(path: *const core::ffi::c_char, mode: libc::mode_t, fi: *mut fuse_file_info) -> core::ffi::c_int;
+>>>>>>> convert-sshfs_open-into-rust
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -1162,6 +1177,59 @@ pub extern "C" fn sshfs_link(
     } else {
         -(libc::ENOSYS as core::ffi::c_int)
     }
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_do_rename(
+    from_path: *mut core::ffi::c_char,
+    to_path: *mut core::ffi::c_char,
+) -> core::ffi::c_int {
+    let from_path = get_real_path(from_path);
+    let to_path = get_real_path(to_path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&from_path);
+    buf.add_str(&to_path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_RENAME,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn sshfs_ext_posix_rename(
+    from_path: *const core::ffi::c_char,
+    to_path: *const core::ffi::c_char,
+) -> core::ffi::c_int {
+    let from_path = get_real_path(from_path);
+    let to_path = get_real_path(to_path);
+    let mut buf = Buffer::new(0);
+    buf.add_str(SFTP_EXT_POSIX_RENAME.as_bytes());
+    buf.add_str(&from_path);
+    buf.add_str(&to_path);
+    let buf = unsafe { buf.translate_into_sys() };
+    unsafe {
+        sftp_request(
+            get_conn(std::ptr::null_mut(), std::ptr::null_mut()),
+            SSH_FXP_EXTENDED,
+            &buf,
+            SSH_FXP_STATUS,
+            None,
+        )
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_open(
+    path: *const core::ffi::c_char,
+    fi: *mut fuse_file_info,
+) -> core::ffi::c_int {
+	sshfs_open_common(path, 0, fi)
 }
 
 #[no_mangle]

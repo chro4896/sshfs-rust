@@ -2331,7 +2331,7 @@ static int sshfs_utimens(const char *path, const struct timespec tv[2],
 	return err;
 }
 
-static int sshfs_open_common(const char *path, mode_t mode,
+int sshfs_open_common(const char *path, mode_t mode,
                              struct fuse_file_info *fi)
 {
 	int err;
@@ -2449,10 +2449,7 @@ static int sshfs_open_common(const char *path, mode_t mode,
 	return err;
 }
 
-static int sshfs_open(const char *path, struct fuse_file_info *fi)
-{
-	return sshfs_open_common(path, 0, fi);
-}
+int sshfs_open(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_flush(const char *path, struct fuse_file_info *fi)
 {
