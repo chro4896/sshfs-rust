@@ -578,7 +578,6 @@ extern "C" {
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
     fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
-    fn sshfs_open_common(path: *const core::ffi::c_char, mode: libc::mode_t, fi: *mut fuse_file_info) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -1115,6 +1114,47 @@ pub extern "C" fn sshfs_ext_posix_rename(
             None,
         )
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode: libc::mode_t, fi: *mut fuse_file_info) -> core::ffi::c_int {
+	let sshfs_ref = retrieve_sshfs().unwrap();
+	let wrctr = if sshfs_ref.dir_cache != 0 {
+		cache_get_write_ctr()
+	} else {
+		0
+	}
+	
+	if sshfs_ref.direct_io != 0 {
+		(*fi).direct_io = 1;
+	}
+	
+	let mut pflags = match ((*fi).flags & libc::O_ACCMODE) {
+		flags if flags == libc::O_RDONLY => SSH_FXF_READ,
+		flags if flags == libc::O_WRONLY => SSH_FXF_WRITE,
+		flags if flags == libc::O_RDWR => SSH_FXF_READ | SSH_FXF_WRITE,
+		_ => return -libc::INVAL;
+	}; 
+	
+	if ((*fi).flags & libc::O_CREAT) != 0 {
+		pflags |= SSH_FXF_CREAT;
+	}
+	if ((*fi).flags & libc::O_EXCL) != 0 {
+		pflags |= SSH_FXF_EXCL;
+	}
+	if ((*fi).flags & libc::O_TRUNC) != 0 {
+		pflags |= SSH_FXF_TRUNC;
+	}
+	if ((*fi).flags & libc::O_APPEND) != 0 {
+		pflags |= SSH_FXF_APPEND;
+	}
+	
+	let sf = libc::malloc(std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
+	list_init(&mut ((*sf).write_reqs) as *mut List_head);
+	libc::pthread_cond_init(&mut ((*sf).write_finished) as *mut libc::pthread_cond_t, std::ptr::null_mut());
+	(*sf).is_seq = 0;
+	(*sf).next_pos = 0;
+	libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
 }
 
 #[no_mangle]
