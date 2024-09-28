@@ -1002,9 +1002,7 @@ pub extern "C" fn sshfs_mkdir(
     }
 }
 
-#[no_mangle]
-pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+fn sshfs_unlink_body(path: &[u8]) -> core::ffi::c_int {
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -1018,6 +1016,12 @@ pub extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_i
             None,
         )
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
+	let path = core::ffi::CStr::from_ptr(path).to_bytes();
+	sshfs_unlink_body(path)
 }
 
 #[no_mangle]
