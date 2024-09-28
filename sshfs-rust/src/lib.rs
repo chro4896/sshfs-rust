@@ -608,7 +608,7 @@ extern "C" {
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
     fn sshfs_send_read(sf: *mut SshfsFile, size, usize, offset: libc::off_t) -> *mut core::ffi::c_void;
-    fn wait_chunk(chunk: *mut core::ffi::c_void, buf, *mut core::ffi::c_char, size: usize) -> core::ffi::c_int;
+    fn wait_chunk(chunk: *mut core::ffi::c_void, buf: *mut core::ffi::c_char, size: usize) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: &[u8]) -> Vec<u8> {
