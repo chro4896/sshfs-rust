@@ -131,8 +131,6 @@
 
 #define MAX_REPLY_LEN (1 << 17)
 
-#define RENAME_TEMP_CHARS 8
-
 #define SFTP_SERVER_PATH "/usr/lib/sftp-server"
 
 /* Asynchronous readdir parameters */
