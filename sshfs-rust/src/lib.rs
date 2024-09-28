@@ -23,12 +23,12 @@ const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
 
-const SSH_FXF_READ: u32 = (1<<0);
-const SSH_FXF_WRITE: u32 = (1<<1);
-const SSH_FXF_APPEND: u32 = (1<<2);
-const SSH_FXF_CREAT: u32 = (1<<3);
-const SSH_FXF_TRUNC: u32 = (1<<4);
-const SSH_FXF_EXCL: u32 = (1<<5);
+const SSH_FXF_READ: u32 = (1 << 0);
+const SSH_FXF_WRITE: u32 = (1 << 1);
+const SSH_FXF_APPEND: u32 = (1 << 2);
+const SSH_FXF_CREAT: u32 = (1 << 3);
+const SSH_FXF_TRUNC: u32 = (1 << 4);
+const SSH_FXF_EXCL: u32 = (1 << 5);
 
 const SFTP_EXT_POSIX_RENAME: &str = "posix-rename@openssh.com";
 const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
@@ -420,18 +420,21 @@ pub extern "C" fn req_table_foreach_remove(cfunc: ClearReqFunc, conn: *mut Conn)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn conn_table_new() -> *mut std::collections::HashMap<Vec<u8>, *mut core::ffi::c_void> {
+pub unsafe extern "C" fn conn_table_new(
+) -> *mut std::collections::HashMap<Vec<u8>, *mut core::ffi::c_void> {
     Box::into_raw(Box::default())
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn conn_table_lookup(key: *const core::ffi::c_char) -> *mut core::ffi::c_void {
-	let key = unsafe { core::ffi::CStr::from_ptr(key) };
-	let key_org = key.to_bytes();
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+pub unsafe extern "C" fn conn_table_lookup(
+    key: *const core::ffi::c_char,
+) -> *mut core::ffi::c_void {
+    let key = unsafe { core::ffi::CStr::from_ptr(key) };
+    let key_org = key.to_bytes();
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &(*sshfs_ref.conntab) };
     match conntab.get(&key) {
@@ -442,11 +445,11 @@ pub unsafe extern "C" fn conn_table_lookup(key: *const core::ffi::c_char) -> *mu
 
 #[no_mangle]
 pub unsafe extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::c_void {
-	let key_org = key;
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+    let key_org = key;
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &(*sshfs_ref.conntab) };
     match conntab.get(&key) {
@@ -457,12 +460,12 @@ pub unsafe extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::
 
 #[no_mangle]
 pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
-	let key = unsafe { core::ffi::CStr::from_ptr(key) };
-	let key_org = key.to_bytes();
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+    let key = unsafe { core::ffi::CStr::from_ptr(key) };
+    let key_org = key.to_bytes();
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.remove(&key);
@@ -470,11 +473,11 @@ pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
 
 #[no_mangle]
 pub extern "C" fn conn_table_remove_slice(key: &[u8]) {
-	let key_org = key;
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+    let key_org = key;
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.remove(&key);
@@ -482,12 +485,12 @@ pub extern "C" fn conn_table_remove_slice(key: &[u8]) {
 
 #[no_mangle]
 pub extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut core::ffi::c_void) {
-	let key = unsafe { core::ffi::CStr::from_ptr(key) };
-	let key_org = key.to_bytes();
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+    let key = unsafe { core::ffi::CStr::from_ptr(key) };
+    let key_org = key.to_bytes();
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.insert(key, val);
@@ -495,11 +498,11 @@ pub extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut cor
 
 #[no_mangle]
 pub extern "C" fn conn_table_insert_slice(key: &[u8], val: *mut core::ffi::c_void) {
-	let key_org = key;
-	let mut key = Vec::new();
-	for c in key_org.iter() {
-		key.push(*c);
-	}
+    let key_org = key;
+    let mut key = Vec::new();
+    for c in key_org.iter() {
+        key.push(*c);
+    }
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
     let conntab = unsafe { &mut (*sshfs_ref.conntab) };
     conntab.insert(key, val);
@@ -605,7 +608,11 @@ extern "C" {
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
     fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
-    fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
+    fn buf_get_entries(
+        buf: *mut Buffer_sys,
+        dbuf: *mut core::ffi::c_void,
+        filler: *mut core::ffi::c_void,
+    ) -> core::ffi::c_int;
 }
 
 fn get_real_path(path: &[u8]) -> Vec<u8> {
@@ -666,11 +673,7 @@ pub unsafe extern "C" fn start_processing_thread(conn: *mut Conn) -> core::ffi::
             libc::free(oldset as *mut core::ffi::c_void);
             -libc::EIO
         } else {
-            libc::pthread_sigmask(
-                libc::SIG_BLOCK,
-                oldset,
-                std::ptr::null_mut(),
-            );
+            libc::pthread_sigmask(libc::SIG_BLOCK, oldset, std::ptr::null_mut());
             (*conn).processing_thread_started = 1;
             libc::free(newset as *mut core::ffi::c_void);
             libc::free(oldset as *mut core::ffi::c_void);
@@ -916,23 +919,37 @@ pub unsafe extern "C" fn sftp_request(
 }
 
 #[no_mangle]
-pub extern "C" fn sftp_readdir_sync(conn: *mut Conn, handle: &Buffer_sys, buf: *mut core::ffi::c_void, offset: libc::off_t, filler: *mut core::ffi::c_void) -> core::ffi::c_int {
-	assert_eq!(0, offset);
-	let mut err = 0;
-	while err == 0 {
-		let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
-		err = unsafe { sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, Some(&mut (*name))) };
-		if err == 0 {
-			unsafe { buf_get_entries(name, buf, filler) };
-			unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
-		}
-		unsafe { libc::free(name as *mut core::ffi::c_void) };
-	}
-	if err == MY_EOF {
-		0
-	} else {
-		err
-	}
+pub extern "C" fn sftp_readdir_sync(
+    conn: *mut Conn,
+    handle: &Buffer_sys,
+    buf: *mut core::ffi::c_void,
+    offset: libc::off_t,
+    filler: *mut core::ffi::c_void,
+) -> core::ffi::c_int {
+    assert_eq!(0, offset);
+    let mut err = 0;
+    while err == 0 {
+        let name = unsafe { libc::malloc(std::mem::size_of::<Buffer_sys>()) } as *mut Buffer_sys;
+        err = unsafe {
+            sftp_request(
+                conn,
+                SSH_FXP_READDIR,
+                handle,
+                SSH_FXP_NAME,
+                Some(&mut (*name)),
+            )
+        };
+        if err == 0 {
+            unsafe { buf_get_entries(name, buf, filler) };
+            unsafe { libc::free((*name).p as *mut core::ffi::c_void) };
+        }
+        unsafe { libc::free(name as *mut core::ffi::c_void) };
+    }
+    if err == MY_EOF {
+        0
+    } else {
+        err
+    }
 }
 
 #[no_mangle]
@@ -940,7 +957,7 @@ pub extern "C" fn sshfs_opendir(
     path: *const core::ffi::c_char,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
-	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+    let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -1011,7 +1028,7 @@ pub extern "C" fn sshfs_mkdir(
     path: *const core::ffi::c_char,
     mode: libc::mode_t,
 ) -> core::ffi::c_int {
-	let real_path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+    let real_path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let real_path = get_real_path(real_path);
     let mut buf = Buffer::new(0);
     buf.add_str(&real_path);
@@ -1059,13 +1076,13 @@ fn sshfs_unlink_body(path: &[u8]) -> core::ffi::c_int {
 
 #[no_mangle]
 pub unsafe extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = core::ffi::CStr::from_ptr(path).to_bytes();
-	sshfs_unlink_body(path)
+    let path = core::ffi::CStr::from_ptr(path).to_bytes();
+    sshfs_unlink_body(path)
 }
 
 #[no_mangle]
 pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
-	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+    let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
     buf.add_str(&path);
@@ -1081,11 +1098,8 @@ pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_in
     }
 }
 
-fn sshfs_do_rename(
-    from_path: &[u8],
-    to_path: &[u8],
-) -> core::ffi::c_int {
-  let from_path = get_real_path(from_path);
+fn sshfs_do_rename(from_path: &[u8], to_path: &[u8]) -> core::ffi::c_int {
+    let from_path = get_real_path(from_path);
     let to_path = get_real_path(to_path);
     let mut buf = Buffer::new(0);
     buf.add_str(&from_path);
@@ -1102,10 +1116,7 @@ fn sshfs_do_rename(
     }
 }
 
-fn sshfs_ext_posix_rename(
-    from_path: &[u8],
-    to_path: &[u8],
-) -> core::ffi::c_int {
+fn sshfs_ext_posix_rename(from_path: &[u8], to_path: &[u8]) -> core::ffi::c_int {
     let from_path = get_real_path(from_path);
     let to_path = get_real_path(to_path);
     let mut buf = Buffer::new(0);
@@ -1126,7 +1137,7 @@ fn sshfs_ext_posix_rename(
 
 fn random_string(s: &mut Vec<u8>, length: core::ffi::c_int) {
     for idx in 0..length {
-		s.push(b'0' + rand::thread_rng().gen_range(0..10) as u8);
+        s.push(b'0' + rand::thread_rng().gen_range(0..10) as u8);
     }
 }
 
@@ -1136,43 +1147,46 @@ fn sshfs_rename_body(
     flags: core::ffi::c_uint,
     sshfs_ref: &mut sshfs,
 ) -> core::ffi::c_int {
-	if flags != 0 {
-		-libc::EINVAL
-	} else {
-		let mut err = if sshfs_ref.ext_posix_rename != 0 {
-			sshfs_ext_posix_rename(from_path, to_path)
-		} else {
-			sshfs_do_rename(from_path, to_path)
-		};
-		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 && to_path.len() as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
-			let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
-			totmp.extend(to_path);
-			random_string(&mut totmp, RENAME_TEMP_CHARS);
-			if sshfs_do_rename(to_path, &totmp) == 0 {
-				err = sshfs_do_rename(from_path, to_path);
-				if err == 0 {
-					err = sshfs_unlink_body(&totmp);
-				} else {
-					sshfs_do_rename(&totmp, to_path);
-				}
-			}
-		}
-		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 {
-			err = -libc::EXDEV;
-		}
-		if err == 0 && sshfs_ref.max_conns > 1 {
+    if flags != 0 {
+        -libc::EINVAL
+    } else {
+        let mut err = if sshfs_ref.ext_posix_rename != 0 {
+            sshfs_ext_posix_rename(from_path, to_path)
+        } else {
+            sshfs_do_rename(from_path, to_path)
+        };
+        if err == -libc::EPERM
+            && sshfs_ref.rename_workaround != 0
+            && to_path.len() as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX
+        {
+            let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
+            totmp.extend(to_path);
+            random_string(&mut totmp, RENAME_TEMP_CHARS);
+            if sshfs_do_rename(to_path, &totmp) == 0 {
+                err = sshfs_do_rename(from_path, to_path);
+                if err == 0 {
+                    err = sshfs_unlink_body(&totmp);
+                } else {
+                    sshfs_do_rename(&totmp, to_path);
+                }
+            }
+        }
+        if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 {
+            err = -libc::EXDEV;
+        }
+        if err == 0 && sshfs_ref.max_conns > 1 {
             unsafe {
-				libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
-				let ce = conn_table_lookup_slice(from_path);
-				if !ce.is_null() {
-					conn_table_insert_slice(to_path, ce);
-					conn_table_remove_slice(from_path);
-				}
-				libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
-			}
-		}
-		err
-	}
+                libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
+                let ce = conn_table_lookup_slice(from_path);
+                if !ce.is_null() {
+                    conn_table_insert_slice(to_path, ce);
+                    conn_table_remove_slice(from_path);
+                }
+                libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
+            }
+        }
+        err
+    }
 }
 
 #[no_mangle]
@@ -1181,7 +1195,7 @@ pub unsafe extern "C" fn sshfs_rename(
     to_path: *const core::ffi::c_char,
     flags: core::ffi::c_uint,
 ) -> core::ffi::c_int {
-	let from_path =core::ffi::CStr::from_ptr(from_path).to_bytes();
+    let from_path = core::ffi::CStr::from_ptr(from_path).to_bytes();
     let to_path = core::ffi::CStr::from_ptr(to_path).to_bytes();
     let sshfs_ref = retrieve_sshfs().unwrap();
     sshfs_rename_body(from_path, to_path, flags, sshfs_ref)
@@ -1195,9 +1209,9 @@ pub extern "C" fn sshfs_link(
     let sshfs_ref = unsafe { retrieve_sshfs().unwrap() };
 
     if sshfs_ref.ext_hardlink != 0 && sshfs_ref.disable_hardlink == 0 {
-	    let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
+        let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
         let from_path = get_real_path(from_path);
-	    let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
+        let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
         let to_path = get_real_path(to_path);
         let mut buf = Buffer::new(0);
         buf.add_str(SFTP_EXT_HARDLINK.as_bytes());
@@ -1226,14 +1240,14 @@ pub unsafe extern "C" fn sshfs_read(
     offset: libc::off_t,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
-	let sf = get_sshfs_file(fi);
-	if sshfs_file_is_conn(sf) == 0 {
-		-libc::EIO
-	} else if retrieve_sshfs().unwrap().sync_read != 0 {
-		sshfs_sync_read(sf, rbuf, size, offset)
-	} else {
-		sshfs_async_read(sf, rbuf, size, offset)
-	}
+    let sf = get_sshfs_file(fi);
+    if sshfs_file_is_conn(sf) == 0 {
+        -libc::EIO
+    } else if retrieve_sshfs().unwrap().sync_read != 0 {
+        sshfs_sync_read(sf, rbuf, size, offset)
+    } else {
+        sshfs_async_read(sf, rbuf, size, offset)
+    }
 }
 
 #[no_mangle]
@@ -1244,20 +1258,20 @@ pub unsafe extern "C" fn sshfs_write(
     offset: libc::off_t,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
-	let sf = get_sshfs_file(fi);
-	if sshfs_file_is_conn(sf) == 0 {
-		-libc::EIO
-	} else {
-		sshfs_inc_modifver();
-		let ret = if retrieve_sshfs().unwrap().sync_write != 0 && (*sf).write_error == 0 {
-		    sshfs_sync_write(sf, wbuf, size, offset)
-	    } else {
-		    sshfs_async_write(sf, wbuf, size, offset)
-		};
-		if ret == 0 {
-			size as core::ffi::c_int
-		} else {
-			ret
-		}
-	}
+    let sf = get_sshfs_file(fi);
+    if sshfs_file_is_conn(sf) == 0 {
+        -libc::EIO
+    } else {
+        sshfs_inc_modifver();
+        let ret = if retrieve_sshfs().unwrap().sync_write != 0 && (*sf).write_error == 0 {
+            sshfs_sync_write(sf, wbuf, size, offset)
+        } else {
+            sshfs_async_write(sf, wbuf, size, offset)
+        };
+        if ret == 0 {
+            size as core::ffi::c_int
+        } else {
+            ret
+        }
+    }
 }
