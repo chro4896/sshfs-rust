@@ -972,8 +972,8 @@ pub extern "C" fn sshfs_mkdir(
     path: *const core::ffi::c_char,
     mode: libc::mode_t,
 ) -> core::ffi::c_int {
-	let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
-    let real_path = get_real_path(path);
+	let real_path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+    let real_path = get_real_path(real_path);
     let mut buf = Buffer::new(0);
     buf.add_str(&real_path);
     buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
@@ -1044,7 +1044,7 @@ unsafe fn sshfs_do_rename(
 ) -> core::ffi::c_int {
 	let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
     let from_path = get_real_path(from_path);
-	let to_path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
+	let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
     let to_path = get_real_path(to_path);
     let mut buf = Buffer::new(0);
     buf.add_str(&from_path);
