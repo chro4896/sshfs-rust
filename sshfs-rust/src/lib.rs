@@ -368,6 +368,12 @@ pub struct SshfsFile {
     modifver: core::ffi::c_int,
 }
 
+#[repr(C)]
+struct ConntabEntry {
+	refcount: core::ffi::c_uint,
+    conn: *mut Conn,
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn req_table_new() -> *mut std::collections::HashMap<u32, *mut Request> {
     Box::into_raw(Box::default())
