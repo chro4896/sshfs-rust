@@ -1107,23 +1107,16 @@ fn sshfs_rename_body(
 		} else {
 			sshfs_do_rename(from_path, to_path)
 		};
-		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 {
-			let mut len = 0;
+		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 && len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
 			let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
-			while unsafe{ *(to_path.offset(len)) } as u8 != 0 {
-				totmp.push(unsafe{ *(to_path.offset(len)) } as u8);
-				len += 1;
-			}
-			if len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
-				let totmp_ptr = totmp.as_mut_ptr();
-				unsafe { random_string(totmp_ptr.offset(len) as *mut core::ffi::c_char, RENAME_TEMP_CHARS) };
-				if sshfs_do_rename(to_path, totmp_ptr as *const core::ffi::c_char) == 0 {
-					err = sshfs_do_rename(from_path, to_path);
-					if err == 0 {
-						err = sshfs_unlink(totmp_ptr as *const core::ffi::c_char);
-					} else {
-						sshfs_do_rename(totmp_ptr as *const core::ffi::c_char, to_path);
-					}
+			totmp.extend(&to_path);
+			random_string(totmp, RENAME_TEMP_CHARS);
+			if sshfs_do_rename(to_path, &totmp) == 0 {
+				err = sshfs_do_rename(from_path, to_path);
+				if err == 0 {
+					err = sshfs_unlink_body(&totmp);
+				} else {
+					sshfs_do_rename(&totmp, to_path);
 				}
 			}
 		}
@@ -1133,10 +1126,10 @@ fn sshfs_rename_body(
 		if err == 0 && sshfs_ref.max_conns > 1 {
             unsafe {
 				libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
-				let ce = conn_table_lookup(from_path);
+				let ce = conn_table_lookup_slice(from_path);
 				if !ce.is_null() {
-					conn_table_insert(to_path, ce);
-					conn_table_remove(from_path);
+					conn_table_insert_slice(to_path, ce);
+					conn_table_remove_slice(from_path);
 				}
 				libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
 			}
