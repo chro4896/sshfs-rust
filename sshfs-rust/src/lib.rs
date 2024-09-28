@@ -23,12 +23,12 @@ const SSH_FX_OK: u32 = 0;
 const SSH_FX_EOF: u32 = 1;
 const SSH_FX_FAILURE: u32 = 4;
 
-const SSH_FXF_READ: u32 = (1 << 0);
-const SSH_FXF_WRITE: u32 = (1 << 1);
-const SSH_FXF_APPEND: u32 = (1 << 2);
-const SSH_FXF_CREAT: u32 = (1 << 3);
-const SSH_FXF_TRUNC: u32 = (1 << 4);
-const SSH_FXF_EXCL: u32 = (1 << 5);
+const SSH_FXF_READ: u32 = 1 << 0;
+const SSH_FXF_WRITE: u32 = 1 << 1;
+const SSH_FXF_APPEND: u32 = 1 << 2;
+const SSH_FXF_CREAT: u32 = 1 << 3;
+const SSH_FXF_TRUNC: u32 = 1 << 4;
+const SSH_FXF_EXCL: u32 = 1 << 5;
 
 const SFTP_EXT_POSIX_RENAME: &str = "posix-rename@openssh.com";
 const SFTP_EXT_HARDLINK: &str = "hardlink@openssh.com";
@@ -444,7 +444,7 @@ pub unsafe extern "C" fn conn_table_lookup(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::c_void {
+pub extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::c_void {
     let key_org = key;
     let mut key = Vec::new();
     for c in key_org.iter() {
@@ -459,7 +459,7 @@ pub unsafe extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::
 }
 
 #[no_mangle]
-pub extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
+pub unsafe extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
     let key = unsafe { core::ffi::CStr::from_ptr(key) };
     let key_org = key.to_bytes();
     let mut key = Vec::new();
@@ -484,7 +484,7 @@ pub extern "C" fn conn_table_remove_slice(key: &[u8]) {
 }
 
 #[no_mangle]
-pub extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut core::ffi::c_void) {
+pub unsafe extern "C" fn conn_table_insert(key: *const core::ffi::c_char, val: *mut core::ffi::c_void) {
     let key = unsafe { core::ffi::CStr::from_ptr(key) };
     let key_org = key.to_bytes();
     let mut key = Vec::new();
@@ -919,7 +919,7 @@ pub unsafe extern "C" fn sftp_request(
 }
 
 #[no_mangle]
-pub extern "C" fn sftp_readdir_sync(
+pub unsafe extern "C" fn sftp_readdir_sync(
     conn: *mut Conn,
     handle: &Buffer_sys,
     buf: *mut core::ffi::c_void,
@@ -953,7 +953,7 @@ pub extern "C" fn sftp_readdir_sync(
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_opendir(
+pub unsafe extern "C" fn sshfs_opendir(
     path: *const core::ffi::c_char,
     fi: &mut fuse_file_info,
 ) -> core::ffi::c_int {
@@ -1024,7 +1024,7 @@ pub unsafe extern "C" fn sshfs_releasedir(
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_mkdir(
+pub unsafe extern "C" fn sshfs_mkdir(
     path: *const core::ffi::c_char,
     mode: libc::mode_t,
 ) -> core::ffi::c_int {
@@ -1081,7 +1081,7 @@ pub unsafe extern "C" fn sshfs_unlink(path: *const core::ffi::c_char) -> core::f
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
+pub unsafe extern "C" fn sshfs_rmdir(path: *const core::ffi::c_char) -> core::ffi::c_int {
     let path = unsafe { core::ffi::CStr::from_ptr(path) }.to_bytes();
     let path = get_real_path(path);
     let mut buf = Buffer::new(0);
@@ -1136,7 +1136,7 @@ fn sshfs_ext_posix_rename(from_path: &[u8], to_path: &[u8]) -> core::ffi::c_int 
 }
 
 fn random_string(s: &mut Vec<u8>, length: core::ffi::c_int) {
-    for idx in 0..length {
+    for _idx in 0..length {
         s.push(b'0' + rand::thread_rng().gen_range(0..10) as u8);
     }
 }
@@ -1202,7 +1202,7 @@ pub unsafe extern "C" fn sshfs_rename(
 }
 
 #[no_mangle]
-pub extern "C" fn sshfs_link(
+pub unsafe extern "C" fn sshfs_link(
     from_path: *const core::ffi::c_char,
     to_path: *const core::ffi::c_char,
 ) -> core::ffi::c_int {
