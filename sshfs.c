@@ -131,8 +131,6 @@
 
 #define MAX_REPLY_LEN (1 << 17)
 
-#define RENAME_TEMP_CHARS 8
-
 #define SFTP_SERVER_PATH "/usr/lib/sftp-server"
 
 /* Asynchronous readdir parameters */
@@ -343,13 +341,13 @@ struct sshfs {
 	char *host;
 	char *base_path;
 	void *reqtab;
-	GHashTable *conntab;
+	void *conntab;
 	pthread_mutex_t lock;
 	pthread_mutex_t *lock_ptr;
 	unsigned int randseed;
 	int max_conns;
 	char *vsock;
-	struct conn *conns;
+	struct conn **conns;
 	int ptyfd;
 	int ptypassivefd;
 	int connvers;
@@ -564,6 +562,10 @@ struct request *req_table_lookup(uint32_t id);
 int req_table_remove(uint32_t id);
 void req_table_insert(uint32_t id, struct request *req);
 void req_table_foreach_remove(void *cfunc, struct conn *conn);
+void *conn_table_new();
+struct conntab_entry *conn_table_lookup(const char *key);
+void conn_table_remove(const char *key);
+void conn_table_insert(const char *key, struct conntab_entry *ce);
 
 #define DEBUG(format, args...)						\
 	do { if (sshfs.debug) fprintf(stderr, format, args); } while(0)
@@ -963,7 +965,7 @@ static int buf_get_statvfs(struct buffer *buf, struct statvfs *stbuf)
 	return 0;
 }
 
-static int buf_get_entries(struct buffer *buf, void *dbuf,
+int buf_get_entries(struct buffer *buf, void *dbuf,
                            fuse_fill_dir_t filler)
 {
 	uint32_t count;
@@ -1079,14 +1081,14 @@ struct conn* get_conn(const struct sshfs_file *sf,
 	int i;
 
 	if (sshfs.max_conns == 1)
-		return &sshfs.conns[0];
+		return sshfs.conns[0];
 
 	if (sf != NULL)
 		return sf->conn;
 
 	if (path != NULL) {
 		pthread_mutex_lock(&sshfs.lock);
-		ce = g_hash_table_lookup(sshfs.conntab, path);
+		ce = conn_table_lookup(path);
 
 		if (ce != NULL) {
 			struct conn *conn = ce->conn;
@@ -1099,16 +1101,16 @@ struct conn* get_conn(const struct sshfs_file *sf,
 	int best_index = 0;
 	uint64_t best_score = ~0ULL; /* smaller is better */
 	for (i = 0; i < sshfs.max_conns; i++) {
-		uint64_t score = ((uint64_t) sshfs.conns[i].req_count << 43) +
-				 ((uint64_t) sshfs.conns[i].dir_count << 22) +
-				 ((uint64_t) sshfs.conns[i].file_count << 1) +
-				 (uint64_t) (sshfs.conns[i].rfd >= 0 ? 0 : 1);
+		uint64_t score = ((uint64_t) sshfs.conns[i]->req_count << 43) +
+				 ((uint64_t) sshfs.conns[i]->dir_count << 22) +
+				 ((uint64_t) sshfs.conns[i]->file_count << 1) +
+				 (uint64_t) (sshfs.conns[i]->rfd >= 0 ? 0 : 1);
 		if (score < best_score) {
 			best_index = i;
 			best_score = score;
 		}
 	}
-	return &sshfs.conns[best_index];
+	return sshfs.conns[best_index];
 }
 
 static int pty_master(char **name)
@@ -1460,17 +1462,7 @@ static int sftp_read(struct conn *conn, uint8_t *type, struct buffer *buf)
 	return res;
 }
 
-void request_free(struct request *req)
-{
-	if (req->end_func)
-		req->end_func(req);
-
-	req->conn->req_count--;
-
-	buf_free(&req->reply);
-	sem_destroy(&req->ready);
-	g_free(req);
-}
+void request_free(struct request *req);
 
 static void chunk_free(struct read_chunk *chunk)
 {
@@ -1599,7 +1591,7 @@ static void close_conn(struct conn *conn)
 	}
 }
 
-static void *process_requests(void *data_)
+void *process_requests(void *data_)
 {
 	(void) data_;
 	struct conn *conn = data_;
@@ -1763,7 +1755,7 @@ int sftp_error_to_errno(uint32_t error)
 	}
 }
 
-static void sftp_detect_uid(struct conn *conn)
+void sftp_detect_uid(struct conn *conn)
 {
 	int flags;
 	uint32_t id = sftp_get_id();
@@ -1882,7 +1874,7 @@ out:
 	return err;
 }
 
-static int connect_remote(struct conn *conn)
+int connect_remote(struct conn *conn)
 {
 	int err;
 
@@ -1905,43 +1897,7 @@ static int connect_remote(struct conn *conn)
 	return err;
 }
 
-int start_processing_thread(struct conn *conn)
-{
-	int err;
-	pthread_t thread_id;
-	sigset_t oldset;
-	sigset_t newset;
-
-	if (conn->processing_thread_started)
-		return 0;
-
-	if (conn->rfd == -1) {
-		err = connect_remote(conn);
-		if (err)
-			return -EIO;
-	}
-
-	if (sshfs.detect_uid) {
-		sftp_detect_uid(conn);
-		sshfs.detect_uid = 0;
-	}
-
-	sigemptyset(&newset);
-	sigaddset(&newset, SIGTERM);
-	sigaddset(&newset, SIGINT);
-	sigaddset(&newset, SIGHUP);
-	sigaddset(&newset, SIGQUIT);
-	pthread_sigmask(SIG_BLOCK, &newset, &oldset);
-	err = pthread_create(&thread_id, NULL, process_requests, conn);
-	if (err) {
-		fprintf(stderr, "failed to create thread: %s\n", strerror(err));
-		return -EIO;
-	}
-	pthread_detach(thread_id);
-	pthread_sigmask(SIG_SETMASK, &oldset, NULL);
-	conn->processing_thread_started = 1;
-	return 0;
-}
+int start_processing_thread(struct conn *conn);
 
 static void *sshfs_init(struct fuse_conn_info *conn,
                         struct fuse_config *cfg)
@@ -1961,7 +1917,7 @@ static void *sshfs_init(struct fuse_conn_info *conn,
 	conn->capable |= FUSE_CAP_EXPORT_SUPPORT;
 
 	if (!sshfs.delay_connect)
-		start_processing_thread(&sshfs.conns[0]);
+		start_processing_thread(sshfs.conns[0]);
 
 	// SFTP only supports 1-second time resolution
 	conn->time_gran = 1000000000;
@@ -1975,28 +1931,8 @@ int sftp_request_send(struct conn *conn, uint8_t type, struct iovec *iov,
 			     size_t count, request_func begin_func, request_func end_func,
 			     int want_reply, void *data, struct request **reqp);
 
-static int sftp_request_iov(struct conn *conn, uint8_t type, struct iovec *iov,
-			    size_t count, uint8_t expect_type, struct buffer *outbuf)
-{
-	int err;
-	struct request *req;
-
-	err = sftp_request_send(conn, type, iov, count, NULL, NULL,
-				expect_type, NULL, &req);
-	if (expect_type == 0)
-		return err;
-
-	return sftp_request_wait(req, type, expect_type, outbuf);
-}
-
 int sftp_request(struct conn *conn, uint8_t type, const struct buffer *buf,
-			uint8_t expect_type, struct buffer *outbuf)
-{
-	struct iovec iov;
-
-	buf_to_iov(buf, &iov);
-	return sftp_request_iov(conn, type, &iov, 1, expect_type, outbuf);
-}
+			uint8_t expect_type, struct buffer *outbuf);
 
 int sshfs_access(const char *path, int mask);
 
@@ -2197,23 +2133,7 @@ int sftp_readdir_async(struct conn *conn, struct buffer *handle,
 }
 
 int sftp_readdir_sync(struct conn *conn, struct buffer *handle,
-			     void *buf, off_t offset, fuse_fill_dir_t filler)
-{
-	int err;
-	assert(offset == 0);
-	do {
-		struct buffer name;
-		err = sftp_request(conn, SSH_FXP_READDIR, handle, SSH_FXP_NAME, &name);
-		if (!err) {
-			err = buf_get_entries(&name, buf, filler);
-			buf_free(&name);
-		}
-	} while (!err);
-	if (err == MY_EOF)
-		err = 0;
-
-	return err;
-}
+			     void *buf, off_t offset, fuse_fill_dir_t filler);
 
 int sshfs_opendir(const char *path, struct fuse_file_info *fi);
 
@@ -2280,68 +2200,7 @@ int sshfs_unlink(const char *path);
 
 int sshfs_rmdir(const char *path);
 
-int sshfs_do_rename(const char *from, const char *to);
-
-static int sshfs_ext_posix_rename(const char *from, const char *to)
-{
-	int err;
-	struct buffer buf;
-	buf_init(&buf, 0);
-	buf_add_string(&buf, SFTP_EXT_POSIX_RENAME);
-	buf_add_path(&buf, from);
-	buf_add_path(&buf, to);
-	// Commutes with pending write(), so we can use any connection
-	err = sftp_request(get_conn(NULL, NULL), SSH_FXP_EXTENDED, &buf, SSH_FXP_STATUS, NULL);
-	buf_free(&buf);
-	return err;
-}
-
-void random_string(char *str, int length);
-
-static int sshfs_rename(const char *from, const char *to, unsigned int flags)
-{
-	int err;
-	struct conntab_entry *ce;
-
-	if(flags != 0)
-		return -EINVAL;
-
-	if (sshfs.ext_posix_rename)
-		err = sshfs_ext_posix_rename(from, to);
-	else
-		err = sshfs_do_rename(from, to);
-	if (err == -EPERM && sshfs.rename_workaround) {
-		size_t tolen = strlen(to);
-		if (tolen + RENAME_TEMP_CHARS < PATH_MAX) {
-			int tmperr;
-			char totmp[PATH_MAX];
-			strcpy(totmp, to);
-			random_string(totmp + tolen, RENAME_TEMP_CHARS);
-			tmperr = sshfs_do_rename(to, totmp);
-			if (!tmperr) {
-				err = sshfs_do_rename(from, to);
-				if (!err)
-					err = sshfs_unlink(totmp);
-				else
-					sshfs_do_rename(totmp, to);
-			}
-		}
-	}
-	if (err == -EPERM && sshfs.renamexdev_workaround)
-		err = -EXDEV;
-
-	if (!err && sshfs.max_conns > 1) {
-		pthread_mutex_lock(&sshfs.lock);
-		ce = g_hash_table_lookup(sshfs.conntab, from);
-		if (ce != NULL) {
-			g_hash_table_replace(sshfs.conntab, g_strdup(to), ce);
-			g_hash_table_remove(sshfs.conntab, from);
-		}
-		pthread_mutex_unlock(&sshfs.lock);
-	}
-
-	return err;
-}
+int sshfs_rename(const char *from, const char *to, unsigned int flags);
 
 int sshfs_link(const char *from, const char *to);
 
@@ -2522,19 +2381,19 @@ static int sshfs_open_common(const char *path, mode_t mode,
 	pthread_mutex_lock(&sshfs.lock);
 	sf->modifver= sshfs.modifver;
 	if (sshfs.max_conns > 1) {
-		ce = g_hash_table_lookup(sshfs.conntab, path);
+		ce = conn_table_lookup(path);
 		if (!ce) {
 			ce = g_malloc(sizeof(struct conntab_entry));
 			ce->refcount = 0;
 			ce->conn = get_conn(NULL, NULL);
-			g_hash_table_insert(sshfs.conntab, g_strdup(path), ce);
+			conn_table_insert(path, ce);
 		}
 		sf->conn = ce->conn;
 		ce->refcount++;
 		sf->conn->file_count++;
 		assert(sf->conn->file_count > 0);
 	} else {
-		sf->conn = &sshfs.conns[0];
+		sf->conn = sshfs.conns[0];
 		ce = NULL; // only to silence compiler warning
 	}
 	sf->connver = sf->conn->connver;
@@ -2577,7 +2436,7 @@ static int sshfs_open_common(const char *path, mode_t mode,
 			sf->conn->file_count--;
 			ce->refcount--;
 			if(ce->refcount == 0) {
-				g_hash_table_remove(sshfs.conntab, path);
+				conn_table_remove(path);
 				g_free(ce);
 			}
 			pthread_mutex_unlock(&sshfs.lock);
@@ -2659,10 +2518,10 @@ static int sshfs_release(const char *path, struct fuse_file_info *fi)
 	if (sshfs.max_conns > 1) {
 		pthread_mutex_lock(&sshfs.lock);
 		sf->conn->file_count--;
-		ce = g_hash_table_lookup(sshfs.conntab, path);
+		ce = conn_table_lookup(path);
 		ce->refcount--;
 		if(ce->refcount == 0) {
-			g_hash_table_remove(sshfs.conntab, path);
+			conn_table_remove(path);
 			g_free(ce);
 		}
 		pthread_mutex_unlock(&sshfs.lock);
@@ -2922,7 +2781,7 @@ static void sshfs_write_end(struct request *req)
 	pthread_cond_broadcast(&sf->write_finished);
 }
 
-static int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 			     size_t size, off_t offset)
 {
 	int err = 0;
@@ -2979,7 +2838,7 @@ static void sshfs_sync_write_end(struct request *req)
 }
 
 
-static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
+int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 			    size_t size, off_t offset)
 {
 	int err = 0;
@@ -3021,26 +2880,8 @@ static int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-static int sshfs_write(const char *path, const char *wbuf, size_t size,
-                       off_t offset, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-
-	(void) path;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	sshfs_inc_modifver();
-
-	if (!sshfs.sync_write && !sf->write_error)
-		err = sshfs_async_write(sf, wbuf, size, offset);
-	else
-		err = sshfs_sync_write(sf, wbuf, size, offset);
-
-	return err ? err : (int) size;
-}
+int sshfs_write(const char *path, const char *wbuf, size_t size,
+                       off_t offset, struct fuse_file_info *fi);
 
 static int sshfs_ext_statvfs(const char *path, struct statvfs *stbuf)
 {
@@ -3287,7 +3128,7 @@ static int processing_init(void)
 
 	pthread_mutex_init(&sshfs.lock, NULL);
 	for (i = 0; i < sshfs.max_conns; i++)
-		pthread_mutex_init(&sshfs.conns[i].lock_write, NULL);
+		pthread_mutex_init(&(sshfs.conns[i]->lock_write), NULL);
 	pthread_cond_init(&sshfs.outstanding_cond, NULL);
 	sshfs.reqtab = req_table_new();
 	if (!sshfs.reqtab) {
@@ -3295,8 +3136,7 @@ static int processing_init(void)
 		return -1;
 	}
 	if (sshfs.max_conns > 1) {
-		sshfs.conntab = g_hash_table_new_full(g_str_hash, g_str_equal,
-						      g_free, NULL);
+		sshfs.conntab = conn_table_new();
 		if (!sshfs.conntab) {
 			fprintf(stderr, "failed to create hash table\n");
 			return -1;
@@ -3710,11 +3550,11 @@ static int ssh_connect(void)
 		return -1;
 
 	if (!sshfs.delay_connect) {
-		if (connect_remote(&sshfs.conns[0]) == -1)
+		if (connect_remote(sshfs.conns[0]) == -1)
 			return -1;
 
 		if (!sshfs.no_check_root &&
-		    sftp_check_root(&sshfs.conns[0], sshfs.base_path) != 0)
+		    sftp_check_root(sshfs.conns[0], sshfs.base_path) != 0)
 			return -1;
 
 	}
@@ -3896,6 +3736,8 @@ static inline void load_gid_map(void)
 	read_id_map(sshfs.gid_file, &groupname_to_gid, "gid", &sshfs.gid_map, &sshfs.r_gid_map);
 }
 
+struct conn *malloc_conn();
+
 #ifdef __APPLE__
 int main(int argc, char *argv[], __unused char *envp[], char **exec_path)
 #else
@@ -4057,10 +3899,11 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	sshfs.conns = g_new0(struct conn, sshfs.max_conns);
+	sshfs.conns = malloc(sizeof(struct conn *)*sshfs.max_conns);
 	for (i = 0; i < sshfs.max_conns; i++) {
-		sshfs.conns[i].rfd = -1;
-		sshfs.conns[i].wfd = -1;
+		sshfs.conns[i] = malloc_conn();
+		sshfs.conns[i]->rfd = -1;
+		sshfs.conns[i]->wfd = -1;
 	}
 
 	fsname = g_strdup(sshfs.host);
