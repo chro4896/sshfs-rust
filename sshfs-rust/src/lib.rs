@@ -1144,7 +1144,7 @@ fn sshfs_rename_body(
 		} else {
 			sshfs_do_rename(from_path, to_path)
 		};
-		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 && len as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
+		if err == -libc::EPERM && sshfs_ref.rename_workaround != 0 && to_path.len() as core::ffi::c_int + RENAME_TEMP_CHARS < libc::PATH_MAX {
 			let mut totmp = Vec::with_capacity(libc::PATH_MAX as usize);
 			totmp.extend(to_path);
 			random_string(&mut totmp, RENAME_TEMP_CHARS);
