@@ -582,10 +582,10 @@ fn get_real_path(path: &[u8]) -> Vec<u8> {
             if unsafe { *(base_path.offset(base_path_len - 1)) } != b'/' as core::ffi::c_char {
                 real_path.push(b'/');
             }
-            real_path.extend(path[1..]);
+            real_path.extend(&path[1..]);
         }
     } else if path.len() > 1 {
-        real_path.extend(path[1..]);
+        real_path.extend(&path[1..]);
     } else {
         real_path.push(b'.');
     }
