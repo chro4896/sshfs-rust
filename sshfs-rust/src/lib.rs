@@ -569,7 +569,7 @@ extern "C" {
     fn buf_get_entries(buf: *mut Buffer_sys, dbuf: *mut core::ffi::c_void, filler: *mut core::ffi::c_void) -> core::ffi::c_int;
 }
 
-fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
+fn get_real_path(path: &[u8]) -> Vec<u8> {
     let base_path = unsafe { retrieve_sshfs().unwrap().base_path };
     let mut real_path = Vec::new();
     if unsafe { *base_path } != 0 {
@@ -578,22 +578,14 @@ fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
             real_path.push(unsafe { *(base_path.offset(base_path_len)) as u8 });
             base_path_len += 1;
         }
-        if unsafe { *(path.offset(1)) } != 0 {
+        if path.len() > 1 {
             if unsafe { *(base_path.offset(base_path_len - 1)) } != b'/' as core::ffi::c_char {
                 real_path.push(b'/');
             }
-            let mut idx = 1;
-            while unsafe { *(path.offset(idx)) } != 0 {
-                real_path.push(unsafe { *(path.offset(idx)) as u8 });
-                idx += 1;
-            }
+            real_path.extend(path[1..]);
         }
-    } else if unsafe { *(path.offset(1)) } != 0 {
-        let mut idx = 1;
-        while unsafe { *(path.offset(idx)) } != 0 {
-            real_path.push(unsafe { *(path.offset(idx)) as u8 });
-            idx += 1;
-        }
+    } else if path.len() > 1 {
+        real_path.extend(path[1..]);
     } else {
         real_path.push(b'.');
     }
