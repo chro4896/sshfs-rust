@@ -1185,6 +1185,14 @@ pub unsafe extern "C" fn sshfs_open(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn sshfs_flush(
+    path: *const core::ffi::c_char,
+    fi: *mut fuse_file_info,
+) -> core::ffi::c_int {
+	0
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sshfs_read(
     _path: *const core::ffi::c_char,
     rbuf: *mut core::ffi::c_char,

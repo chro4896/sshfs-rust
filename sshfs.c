@@ -2451,34 +2451,7 @@ int sshfs_open_common(const char *path, mode_t mode,
 
 int sshfs_open(const char *path, struct fuse_file_info *fi);
 
-static int sshfs_flush(const char *path, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-	struct list_head write_reqs;
-	struct list_head *curr_list;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	if (sshfs.sync_write)
-		return 0;
-
-	(void) path;
-	pthread_mutex_lock(&sshfs.lock);
-	if (!list_empty(&sf->write_reqs)) {
-		curr_list = sf->write_reqs.prev;
-		list_del(&sf->write_reqs);
-		list_init(&sf->write_reqs);
-		list_add(&write_reqs, curr_list);
-		while (!list_empty(&write_reqs))
-			pthread_cond_wait(&sf->write_finished, &sshfs.lock);
-	}
-	err = sf->write_error;
-	sf->write_error = 0;
-	pthread_mutex_unlock(&sshfs.lock);
-	return err;
-}
+int sshfs_flush(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_fsync(const char *path, int isdatasync,
                        struct fuse_file_info *fi)
