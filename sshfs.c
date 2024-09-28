@@ -131,8 +131,6 @@
 
 #define MAX_REPLY_LEN (1 << 17)
 
-#define RENAME_TEMP_CHARS 8
-
 #define SFTP_SERVER_PATH "/usr/lib/sftp-server"
 
 /* Asynchronous readdir parameters */
@@ -2574,7 +2572,7 @@ static void sshfs_read_begin(struct request *req)
 	rreq->sio->num_reqs++;
 }
 
-static struct read_chunk *sshfs_send_read(struct sshfs_file *sf, size_t size,
+struct read_chunk *sshfs_send_read(struct sshfs_file *sf, size_t size,
 					  off_t offset)
 {
 	struct read_chunk *chunk = g_new0(struct read_chunk, 1);
@@ -2620,7 +2618,7 @@ static struct read_chunk *sshfs_send_read(struct sshfs_file *sf, size_t size,
 	return chunk;
 }
 
-static int wait_chunk(struct read_chunk *chunk, char *buf, size_t size)
+int wait_chunk(struct read_chunk *chunk, char *buf, size_t size)
 {
 	int res = 0;
 	struct read_req *rreq;
@@ -2676,15 +2674,6 @@ static int wait_chunk(struct read_chunk *chunk, char *buf, size_t size)
 out:
 	chunk_put_locked(chunk);
 	return res;
-}
-
-int sshfs_sync_read(struct sshfs_file *sf, char *buf, size_t size,
-                           off_t offset)
-{
-	struct read_chunk *chunk;
-
-	chunk = sshfs_send_read(sf, size, offset);
-	return wait_chunk(chunk, buf, size);
 }
 
 static void submit_read(struct sshfs_file *sf, size_t size, off_t offset,
