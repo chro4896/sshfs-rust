@@ -1181,9 +1181,10 @@ pub unsafe extern "C" fn sshfs_rename(
     to_path: *const core::ffi::c_char,
     flags: core::ffi::c_uint,
 ) -> core::ffi::c_int {
-	    let from_path = unsafe { core::ffi::CStr::from_ptr(from_path) }.to_bytes();
-        let from_path = get_real_path(from_path);
-	    let to_path = unsafe { core::ffi::CStr::from_ptr(to_path) }.to_bytes();
+	let from_path =core::ffi::CStr::from_ptr(from_path).to_bytes();
+    let to_path = core::ffi::CStr::from_ptr(to_path).to_bytes();
+    let sshfs_ref = retrieve_sshfs().unwrap();
+    sshfs_rename_body(from_path, to_path, flags, sshfs_ref)
 }
 
 #[no_mangle]
