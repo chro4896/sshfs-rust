@@ -466,8 +466,6 @@ extern "C" {
         offset: libc::off_t,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
-    fn sshfs_sync_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
-                           offset: libc::off_t) -> core::ffi::c_int;
     fn sshfs_async_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
 }
@@ -867,6 +865,10 @@ pub extern "C" fn sshfs_do_rename(
             None,
         )
     }
+}
+
+unsafe fn sshfs_sync_read(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize, offset: libc::off_t) -> core::ffi::c_int {
+	wait_chunk(sshfs_send_read(sf, size, offset), buf, size)
 }
 
 #[no_mangle]
