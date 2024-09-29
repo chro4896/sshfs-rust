@@ -1155,6 +1155,26 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 	(*sf).is_seq = 0;
 	(*sf).next_pos = 0;
 	libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
+	(*sf).modifver = sshfs_ref.modifver;
+	let ce = if sshfs_ref.max_conns > 1 {
+		let mut ret = conn_table_lookup(path) as *mut ConntabEntry;
+		if ret.is_null() {
+			ret = libc::malloc(std::mem::size_of::<ConntabEntry>()) as *mut ConntabEntry;
+			(*ret).refcount = 0;
+			(*ret).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
+			conn_table_insert(path, ret as *mut ConntabEntry);
+		}
+		(*sf).conn = (*ret).conn;
+		(*ret).refcount += 1;
+		(*((*sf).conn)).file_count += 1;
+		assert!((*((*sf).conn)).file_count > 0);
+		ret
+	} else {
+		(*sf).conn = *(sshfs_ref.conns as *mut *mut Conn);
+		std::ptr::null_mut()
+	}
+	(*sf).connver = (*((*sf).conn)).connver;
+	libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
 }
 
 #[no_mangle]
