@@ -1193,7 +1193,7 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
     buf.add_u32(pflags);
     buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
     buf.add_u32(mode as u32);
-    let buf = unsafe { buf.translate_into_sys() };
+    let mut buf = unsafe { buf.translate_into_sys() };
     buf_to_iov(&mut buf as *mut Buffer_sys, iov);
     sftp_request_send((*sf).conn, SSH_FXP_OPEN, iov, 1, None, None, 1, std::ptr::null_mut(), &mut openreq as *mut *mut Request);
     let mut buf = Buffer::new(0);
