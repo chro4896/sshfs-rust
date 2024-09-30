@@ -584,6 +584,7 @@ extern "C" {
     fn buf_get_attrs(buf: *mut Buffer_sys, stbuf: *mut libc::stat, flagsp: *mut core::ffi::c_void) -> core::ffi::c_int;
     fn cache_add_attr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, wrctr: u64);
     fn cache_invalidate(path: *const core::ffi::c_char);
+    fn set_direct_io(fi: *mut fuse_file_info);
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -1132,14 +1133,14 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 	};
 	
 	if sshfs_ref.direct_io != 0 {
-		(*fi).direct_io = 1;
+		set_direct_io(fi);
 	}
 	
 	let mut pflags = match (*fi).flags & libc::O_ACCMODE {
 		flags if flags == libc::O_RDONLY => SSH_FXF_READ,
 		flags if flags == libc::O_WRONLY => SSH_FXF_WRITE,
 		flags if flags == libc::O_RDWR => SSH_FXF_READ | SSH_FXF_WRITE,
-		_ => return -libc::INVAL,
+		_ => return -libc::EINVAL,
 	}; 
 	
 	if ((*fi).flags & libc::O_CREAT) != 0 {

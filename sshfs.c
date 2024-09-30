@@ -3994,3 +3994,7 @@ struct sshfs *retrieve_sshfs () {
 	sshfs.lock_ptr = &(sshfs.lock);
 	return &sshfs;
 }
+
+void set_direct_io(struct fuse_file_info *fi) {
+	fi.direct_io = 1;
+}
