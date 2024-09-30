@@ -3996,5 +3996,5 @@ struct sshfs *retrieve_sshfs () {
 }
 
 void set_direct_io(struct fuse_file_info *fi) {
-	fi.direct_io = 1;
+	fi->direct_io = 1;
 }
