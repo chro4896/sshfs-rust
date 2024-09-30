@@ -613,7 +613,7 @@ const char *type_name(uint8_t type)
 #define list_entry(ptr, type, member)		\
 	container_of(ptr, type, member)
 
-static void list_init(struct list_head *head)
+void list_init(struct list_head *head)
 {
 	head->next = head;
 	head->prev = head;
@@ -851,7 +851,7 @@ static inline int buf_get_string(struct buffer *buf, char **str)
 	return 0;
 }
 
-static int buf_get_attrs(struct buffer *buf, struct stat *stbuf, int *flagsp)
+int buf_get_attrs(struct buffer *buf, struct stat *stbuf, int *flagsp)
 {
 	uint32_t flags;
 	uint64_t size = 0;
@@ -1379,7 +1379,7 @@ uint32_t sftp_get_id(void)
 	return idctr++;
 }
 
-static void buf_to_iov(const struct buffer *buf, struct iovec *iov)
+void buf_to_iov(const struct buffer *buf, struct iovec *iov)
 {
 	iov->iov_base = buf->p;
 	iov->iov_len = buf->len;

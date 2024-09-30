@@ -578,6 +578,12 @@ extern "C" {
     fn connect_remote(conn: *mut Conn) -> core::ffi::c_int;
     fn sftp_detect_uid(conn: *mut Conn);
     fn process_requests(data: *mut core::ffi::c_void) -> *mut core::ffi::c_void;
+    fn cache_get_write_ctr() -> u64;
+    fn list_init(*mut List_head);
+    fn buf_to_iov(*mut Buffer_sys, *mut libc::iovec);
+    fn buf_get_attrs(*mut Buffer_sys, *mut libc::stat, *mut core::ffi::c_void);
+    fn cache_add_attr(*const core::ffi::c_char, *mut libc::stat, u64);
+    fn cache_invalidate(*const core::ffi::c_char);
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -1180,6 +1186,7 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
     let iov = libc::malloc(std::mem::size_of::<libc::iovec>()) as *mut libc::iovec;
     let stbuf = libc::malloc(std::mem::size_of::<libc::stat>()) as *mut libc::stat;
     let mut buf = Buffer::new(0);
+    let path_org = path;
     let path = get_real_path(path);
     buf.add_str(&path);
     buf.add_u32(pflags);
@@ -1214,8 +1221,26 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 		err = err2;
 	}
 	if err == 0 {
-		
+		if sshfs_ref.dir_cache != 0 {
+			cache_add_attr(path_org, stbuf, wrctr);
+		}
+		(*sf).handle.len = (*sf).handle.size;
+		(*fi).fh = sf as u64;
 	} else {
+		if sshfs_ref.dir_cache != 0 {
+			cache_invalidate(path_org);
+		}
+		if sshfs_ref.max_conns > 1 {
+			libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
+			(*((*sf).conn)).file_count -= 1;
+			(*ce).refcount -= 1;
+			if (*ce).refcount == 0 {
+				conn_table_remove(path_org);
+				libc::free(ce as *mut core::ffi::c_void);
+			}
+			libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
+		}
+		libc::free(sf as *mut core::ffi::c_void);
 	}
 	libc::free(stbuf as *mut core::ffi::c_void);
 	libc::free(iov as *mut core::ffi::c_void);
