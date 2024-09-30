@@ -1175,6 +1175,51 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 	}
 	(*sf).connver = (*((*sf).conn)).connver;
 	libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
+	let mut openreq: *mut Request = std::ptr::null_mut();
+	// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+    let iov = libc::malloc(std::mem::size_of::<libc::iovec>()) as *mut libc::iovec;
+    let stbuf = libc::malloc(std::mem::size_of::<libc::stat>()) as *mut libc::stat;
+    let mut buf = Buffer::new(0);
+    let path = get_real_path(path);
+    buf.add_str(&path);
+    buf.add_u32(pflags);
+    buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
+    buf.add_u32(mode as u32);
+    let buf = unsafe { buf.translate_into_sys() };
+    buf_to_iov(&mut buf as *mut Buffer_sys, iov);
+    sftp_request_send((*sf).conn, SSH_FXP_OPEN, iov, 1, None, None, 1, std::ptr::null_mut(), &mut open_req as *mut *mut Request);
+    let mut buf = Buffer::new(0);
+    buf.add_str(&path);
+    let buf = unsafe { buf.translate_into_sys() };
+    let ssh_type = if sshfs_ref.follow_symlinks != 0 {
+		SSH_FXP_STAT
+	} else {
+		SSH_FXP_LSTAT
+	};
+	// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+    let outbuf = libc::malloc(std::mem::size_of::<Buffer_sys>()) as *mut Buffer_sys;
+	let err2 = if sftp_request((*sf).conn, ssh_type, &buf, SSH_FXP_ATTRS, Some(&mut (*outbuf))) == 0 {
+		0
+	} else {
+		let ret = buf_get_attrs(outbuf, stbuf, std::ptr::null_mut());
+		libc::free((*outbuf).p as *mut core::ffi::c_void);
+		ret
+	}
+	libc::free(outbuf as *mut core::ffi::c_void);
+	let mut err = sftp_request_wait(Some(Box::into_raw(open_req)), SSH_FXP_OPEN, SSH_FXP_HANDLE, Some(&mut sf.handle));
+	if err == 0 && err2 != 0 {
+		(*sf).handle.len = (*sf).handle.size;
+		sftp_request((*sf).conn, SSH_FXP_CLOSE, &sf.handle, 0, None);
+		libc::free((*sf).handle.p as *mut core::ffi::c_void);
+		err = err2;
+	}
+	if err == 0 {
+		
+	} else {
+	}
+	libc::free(stbuf as *mut core::ffi::c_void);
+	libc::free(iov as *mut core::ffi::c_void);
+	err
 }
 
 #[no_mangle]
