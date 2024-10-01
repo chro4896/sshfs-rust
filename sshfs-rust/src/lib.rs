@@ -1156,7 +1156,7 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 		pflags |= SSH_FXF_APPEND;
 	}
 	
-	let sf = libc::malloc(std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
+	let sf = libc::calloc(1, std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
 	list_init(&mut ((*sf).write_reqs) as *mut List_head);
 	libc::pthread_cond_init(&mut ((*sf).write_finished) as *mut libc::pthread_cond_t, std::ptr::null_mut());
 	(*sf).is_seq = 0;

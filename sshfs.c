@@ -2476,7 +2476,7 @@ static int sshfs_release(const char *path, struct fuse_file_info *fi)
 		}
 		pthread_mutex_unlock(&sshfs.lock);
 	}
-	g_free(sf);
+	free(sf);
 	return 0;
 }
 
