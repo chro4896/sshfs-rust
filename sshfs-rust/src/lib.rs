@@ -1162,7 +1162,7 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 	(*sf).is_seq = 0;
 	(*sf).next_pos = 0;
 	libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
-	(*sf).modifver = sshfs_ref.modifver as i32;
+	(*sf).modifver = sshfs_ref.modifver as core::ffi::c_int;
 	let ce = if sshfs_ref.max_conns > 1 {
 		let mut ret = conn_table_lookup(path) as *mut ConntabEntry;
 		if ret.is_null() {
@@ -1206,13 +1206,11 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 	};
 	// 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
     let outbuf = libc::malloc(std::mem::size_of::<Buffer_sys>()) as *mut Buffer_sys;
-	let err2 = if sftp_request((*sf).conn, ssh_type, &buf, SSH_FXP_ATTRS, Some(&mut (*outbuf))) == 0 {
-		0
-	} else {
-		let ret = buf_get_attrs(outbuf, stbuf, std::ptr::null_mut());
+	let mut err2 = sftp_request((*sf).conn, ssh_type, &buf, SSH_FXP_ATTRS, Some(&mut (*outbuf)));
+	if err2 == 0 {
+		err2 = buf_get_attrs(outbuf, stbuf, std::ptr::null_mut());
 		libc::free((*outbuf).p as *mut core::ffi::c_void);
-		ret
-	};
+	}
 	libc::free(outbuf as *mut core::ffi::c_void);
 	let mut err = sftp_request_wait(Some(Box::from_raw(openreq)), SSH_FXP_OPEN, SSH_FXP_HANDLE, Some(&mut (*sf).handle));
 	if err == 0 && err2 != 0 {
