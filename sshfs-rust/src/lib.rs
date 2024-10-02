@@ -356,6 +356,7 @@ struct List_head {
     next: *mut List_head,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 pub struct SshfsFile {
     handle: Buffer_sys,
