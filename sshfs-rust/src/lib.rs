@@ -932,7 +932,7 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
     libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     if err == 0 {
 		err = (*sio).error;
-	}
+    }
     libc::free(sio as *mut core::ffi::c_void);
     err
 }
