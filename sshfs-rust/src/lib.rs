@@ -1361,7 +1361,8 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 			cache_add_attr(path_org, stbuf, wrctr);
 		}
 		(*sf).handle.len = (*sf).handle.size;
-		(*fi).fh = sf as u64;
+		let sf = Box::new((*sf).clone());
+		(*fi).fh = Box::into_raw(sf) as u64;
 	} else {
 		if sshfs_ref.dir_cache != 0 {
 			cache_invalidate(path_org);
@@ -1376,8 +1377,8 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 			}
 			libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
 		}
-		libc::free(sf as *mut core::ffi::c_void);
 	}
+    libc::free(sf as *mut core::ffi::c_void);
 	libc::free(stbuf as *mut core::ffi::c_void);
 	libc::free(iov as *mut core::ffi::c_void);
 	err
