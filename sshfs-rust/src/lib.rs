@@ -924,11 +924,11 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
 		offset += bsize;
         libc::free(iov0 as *mut core::ffi::c_void);
         libc::free(iov1 as *mut core::ffi::c_void);
-	}
+    }
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     while (*sio).num_reps != 0 {
 		libc::pthread_cond_wait(&mut (*si).finished as *mut libc::pthread_cond_t, sshfs_ref.lock_ptr);
-	}
+    }
     libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     if err == 0 {
 		err = (*sio).error;
