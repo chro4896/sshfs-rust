@@ -2973,13 +2973,13 @@ int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-static void sshfs_sync_write_begin(struct request *req)
+void sshfs_sync_write_begin(struct request *req)
 {
 	struct sshfs_io *sio = (struct sshfs_io *) req->data;
 	sio->num_reqs++;
 }
 
-static void sshfs_sync_write_end(struct request *req)
+void sshfs_sync_write_end(struct request *req)
 {
 	uint32_t serr;
 	struct sshfs_io *sio = (struct sshfs_io *) req->data;
