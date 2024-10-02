@@ -886,8 +886,8 @@ pub extern "C" fn sshfs_do_rename(
     }
 }
 
-unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, size: usize,
-                           offset: libc::off_t) -> core::ffi::c_int {
+unsafe fn sshfs_sync_write(sf: *mut SshfsFile, mut wbuf: *mut core::ffi::c_char, mut size: usize,
+                           mut offset: libc::off_t) -> core::ffi::c_int {
 	let mut err = 0;
 	let sshfs_ref = retrieve_sshfs().unwrap();
     let handle = &mut (*sf).handle;
