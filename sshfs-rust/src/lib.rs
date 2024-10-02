@@ -323,7 +323,7 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(*mut Request);
+type RequestFunc = unsafe extern "C" fn(*mut Request);
 
 #[repr(C)]
 pub struct Request {
