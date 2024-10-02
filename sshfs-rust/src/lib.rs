@@ -333,6 +333,13 @@ pub struct Request {
 }
 
 #[repr(C)]
+pub struct SshfsIo {
+	num_reps: core::ffi::c_int,
+	finished: libc::pthread_cond_t,
+	error: core::ffi::c_int,
+}
+
+#[repr(C)]
 struct List_head {
     prev: *mut List_head,
     next: *mut List_head,
@@ -867,6 +874,11 @@ pub extern "C" fn sshfs_do_rename(
             None,
         )
     }
+}
+
+unsafe fn sshfs_sync_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
+                           offset: libc::off_t) -> core::ffi::c_int {
+    let handle = &mut (*sf).handle;
 }
 
 #[no_mangle]

@@ -3001,46 +3001,7 @@ static void sshfs_sync_write_end(struct request *req)
 
 
 int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
-			    size_t size, off_t offset)
-{
-	int err = 0;
-	struct buffer *handle = &sf->handle;
-	struct sshfs_io sio = { .error = 0, .num_reqs = 0 };
-
-	pthread_cond_init(&sio.finished, NULL);
-
-	while (!err && size) {
-		struct buffer buf;
-		struct iovec iov[2];
-		size_t bsize = size < sshfs.max_write ? size : sshfs.max_write;
-
-		buf_init(&buf, 0);
-		buf_add_buf(&buf, handle);
-		buf_add_uint64(&buf, offset);
-		buf_add_uint32(&buf, bsize);
-		buf_to_iov(&buf, &iov[0]);
-		iov[1].iov_base = (void *) wbuf;
-		iov[1].iov_len = bsize;
-		err = sftp_request_send(sf->conn, SSH_FXP_WRITE, iov, 2,
-					sshfs_sync_write_begin,
-					sshfs_sync_write_end,
-					0, &sio, NULL);
-		buf_free(&buf);
-		size -= bsize;
-		wbuf += bsize;
-		offset += bsize;
-	}
-
-	pthread_mutex_lock(&sshfs.lock);
-	while (sio.num_reqs)
-	       pthread_cond_wait(&sio.finished, &sshfs.lock);
-	pthread_mutex_unlock(&sshfs.lock);
-
-	if (!err)
-		err = sio.error;
-
-	return err;
-}
+			    size_t size, off_t offset);
 
 int sshfs_write(const char *path, const char *wbuf, size_t size,
                        off_t offset, struct fuse_file_info *fi);
