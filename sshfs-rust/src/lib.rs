@@ -908,7 +908,7 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
 	    buf.add_u32(bsize as u32);
         let buf = unsafe { buf.translate_into_sys() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
-        let iov = libc::malloc(std::mem::size_of::<libc::iovec>()*2) } as *mut libc::iovec;
+        let iov = libc::malloc(std::mem::size_of::<libc::iovec>()*2) as *mut libc::iovec;
         let iov0 = iov;
         let iov1 = iov.offset(1);
         (*iov0).iov_base = buf.p as *mut core::ffi::c_void;
