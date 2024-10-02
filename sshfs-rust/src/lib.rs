@@ -297,7 +297,7 @@ impl Buffer {
     }
     unsafe fn add_buf(&mut self, data: &mut Buffer_sys) {
 		for idx in 0..data.len {
-			self.p.push(*(data.p.offset(idx)));
+			self.p.push(*(data.p.offset(idx as isize)));
 		}
     }
     fn add_str(&mut self, data: &[u8]) {
@@ -886,13 +886,6 @@ pub extern "C" fn sshfs_do_rename(
     }
 }
 
-fn sshfs_sync_write_begin_wrap(req: *mut Request) {
-	unsafe { sshfs_write_begin(req) };
-}
-fn sshfs_sync_write_end_wrap(req: *mut Request) {
-	unsafe { sshfs_write_end(req) };
-}
-
 unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int {
 	let mut err = 0;
@@ -923,12 +916,12 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
         (*iov1).iov_base = wbuf as *mut core::ffi::c_void;
         (*iov1).iov_len = bsize;
         err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov as *mut core::ffi::c_void, 2,
-					Some(sshfs_sync_write_begin_wrap),
-					Some(sshfs_sync_write_end_wrap),
+					Some(sshfs_sync_write_begin),
+					Some(sshfs_sync_write_end),
 					0, sio as *mut core::ffi::c_void, std::ptr::null_mut());
 		size -= bsize;
-		wbuf = wbuf.offset(bsize);
-		offset += bsize;
+		wbuf = wbuf.offset(bsize as isize);
+		offset += bsize as i64;
         libc::free(iov0 as *mut core::ffi::c_void);
         libc::free(iov1 as *mut core::ffi::c_void);
     }
