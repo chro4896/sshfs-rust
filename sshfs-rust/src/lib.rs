@@ -892,7 +892,7 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
 	let sshfs_ref = retrieve_sshfs().unwrap();
     let handle = &mut (*sf).handle;
     // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
-    let sio = libc::malloc(std::mem::size_of::<SshfsIo>()) } as *mut SshfsIo;
+    let sio = libc::malloc(std::mem::size_of::<SshfsIo>()) as *mut SshfsIo;
     (*sio).num_reps = 0;
     (*sio).error = 0;
     libc::pthread_cond_init(&mut (*si).finished as *mut libc::pthread_cond_t, std::ptr::null());
