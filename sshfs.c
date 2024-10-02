@@ -617,7 +617,7 @@ static void list_init(struct list_head *head)
 	head->prev = head;
 }
 
-static void list_add(struct list_head *new, struct list_head *head)
+void list_add(struct list_head *new, struct list_head *head)
 {
 	struct list_head *prev = head;
 	struct list_head *next = head->next;
@@ -627,7 +627,7 @@ static void list_add(struct list_head *new, struct list_head *head)
 	prev->next = new;
 }
 
-static void list_del(struct list_head *entry)
+void list_del(struct list_head *entry)
 {
 	struct list_head *prev = entry->prev;
 	struct list_head *next = entry->next;
@@ -636,7 +636,7 @@ static void list_del(struct list_head *entry)
 
 }
 
-static int list_empty(const struct list_head *head)
+int list_empty(const struct list_head *head)
 {
 	return head->next == head;
 }

@@ -3,6 +3,7 @@ use rand::Rng;
 const SSH_FXP_OPEN: u8 = 3;
 const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_WRITE: u8 = 6;
 const SSH_FXP_LSTAT: u8 = 7;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
@@ -613,6 +614,9 @@ extern "C" {
         dbuf: *mut core::ffi::c_void,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
+    fn list_empty(head: *const List_head);
+    fn list_del(entry: *mut List_head);
+    fn list_add(new: *mut List_head, head: *mut List_head);
 }
 
 fn get_real_path(path: &[u8]) -> Vec<u8> {
