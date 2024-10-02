@@ -2,6 +2,7 @@ use rand::Rng;
 
 const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_WRITE: u8 = 6;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
 const SSH_FXP_REMOVE: u8 = 13;
@@ -907,8 +908,9 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
 	    buf.add_u32(bsize as u32);
         let buf = unsafe { buf.translate_into_sys() };
         // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
-        let iov0 = libc::malloc(std::mem::size_of::<libc::iovec>()) } as *mut libc::iovec;
-        let iov1 = libc::malloc(std::mem::size_of::<libc::iovec>()) } as *mut libc::iovec;
+        let iov = libc::malloc(std::mem::size_of::<libc::iovec>()*2) } as *mut libc::iovec;
+        let iov0 = iov;
+        let iov1 = iov.offset(1);
         (*iov0).iov_base = buf.p as *mut core::ffi::c_void;
         (*iov0).iov_len = buf.len;
         (*iov1).iov_base = wbuf as *mut core::ffi::c_void;
@@ -917,8 +919,19 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
 					Some(sshfs_sync_write_begin),
 					Some(sshfs_sync_write_end),
 					0, sio, std::ptr::null_mut());
+		size -= bsize;
+		wbuf = wbud.offset(bsize);
+		offset += bsize;
         libc::free(iov0 as *mut core::ffi::c_void);
         libc::free(iov1 as *mut core::ffi::c_void);
+	}
+    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+    while (*sio).num_reps != 0 {
+		libc::pthread_cond_wait(&mut (*si).finished as *mut libc::pthread_cond_t, sshfs_ref.lock_ptr);
+	}
+    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    if err == 0 {
+		err = (*sio).error;
 	}
     libc::free(sio as *mut core::ffi::c_void);
     err
