@@ -2386,6 +2386,8 @@ static int sshfs_fsync(const char *path, int isdatasync,
 	return err;
 }
 
+void free_sf(struct sshfs_file *sf);
+
 static int sshfs_release(const char *path, struct fuse_file_info *fi)
 {
 	struct sshfs_file *sf = get_sshfs_file(fi);
@@ -2408,7 +2410,7 @@ static int sshfs_release(const char *path, struct fuse_file_info *fi)
 		}
 		pthread_mutex_unlock(&sshfs.lock);
 	}
-	free(sf);
+	free_sf(sf);
 	return 0;
 }
 

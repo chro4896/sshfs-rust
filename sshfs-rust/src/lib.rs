@@ -1255,6 +1255,11 @@ unsafe fn sshfs_sync_read(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn free_sf(sf: *mut SshfsFile) {
+	Box::from_raw(sf);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode: libc::mode_t, fi: *mut fuse_file_info) -> core::ffi::c_int {
 	let sshfs_ref = retrieve_sshfs().unwrap();
 	let wrctr = if sshfs_ref.dir_cache != 0 {
