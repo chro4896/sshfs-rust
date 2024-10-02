@@ -878,7 +878,18 @@ pub extern "C" fn sshfs_do_rename(
 
 unsafe fn sshfs_sync_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int {
+	let mut err = 0;
     let handle = &mut (*sf).handle;
+    // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+    let sio = libc::malloc(std::mem::size_of::<SshfsIo>()) } as *mut SshfsIo;
+    (*sio).num_reps = 0;
+    (*sio).error = 0;
+    libc::pthread_cond_init(&mut (*si).finished as *mut libc::pthread_cond_t, std::ptr::null());
+    while err == 0 && size > 0 {
+		
+	}
+    libc::free(sio as *mut core::ffi::c_void);
+    err
 }
 
 #[no_mangle]

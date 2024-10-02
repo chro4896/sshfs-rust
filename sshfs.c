@@ -2999,10 +2999,6 @@ static void sshfs_sync_write_end(struct request *req)
 		pthread_cond_broadcast(&sio->finished);
 }
 
-
-int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
-			    size_t size, off_t offset);
-
 int sshfs_write(const char *path, const char *wbuf, size_t size,
                        off_t offset, struct fuse_file_info *fi);
 
