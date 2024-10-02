@@ -886,6 +886,13 @@ pub extern "C" fn sshfs_do_rename(
     }
 }
 
+fn sshfs_sync_write_begin_wrap(req: *mut Request) {
+	unsafe { sshfs_write_begin(req) };
+}
+fn sshfs_sync_write_end_wrap(req: *mut Request) {
+	unsafe { sshfs_write_end(req) };
+}
+
 unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int {
 	let mut err = 0;
@@ -895,12 +902,12 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
     let sio = libc::malloc(std::mem::size_of::<SshfsIo>()) as *mut SshfsIo;
     (*sio).num_reps = 0;
     (*sio).error = 0;
-    libc::pthread_cond_init(&mut (*si).finished as *mut libc::pthread_cond_t, std::ptr::null());
+    libc::pthread_cond_init(&mut (*sio).finished as *mut libc::pthread_cond_t, std::ptr::null());
     while err == 0 && size > 0 {
-		let bsize = if size < sshfs_ref.max_write {
+		let bsize = if size < sshfs_ref.max_write as usize {
 			size
 		} else {
-			sshfs_ref.max_write
+			sshfs_ref.max_write as usize
 		};
         let mut buf = Buffer::new(0);
         buf.add_buf(handle);
@@ -915,19 +922,19 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, wbuf: *mut core::ffi::c_char, siz
         (*iov0).iov_len = buf.len;
         (*iov1).iov_base = wbuf as *mut core::ffi::c_void;
         (*iov1).iov_len = bsize;
-        err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov, 2,
-					Some(sshfs_sync_write_begin),
-					Some(sshfs_sync_write_end),
-					0, sio, std::ptr::null_mut());
+        err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov as *mut core::ffi::c_void, 2,
+					Some(sshfs_sync_write_begin_wrap),
+					Some(sshfs_sync_write_end_wrap),
+					0, sio as *mut core::ffi::c_void, std::ptr::null_mut());
 		size -= bsize;
-		wbuf = wbud.offset(bsize);
+		wbuf = wbuf.offset(bsize);
 		offset += bsize;
         libc::free(iov0 as *mut core::ffi::c_void);
         libc::free(iov1 as *mut core::ffi::c_void);
     }
     libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
     while (*sio).num_reps != 0 {
-		libc::pthread_cond_wait(&mut (*si).finished as *mut libc::pthread_cond_t, sshfs_ref.lock_ptr);
+		libc::pthread_cond_wait(&mut (*sio).finished as *mut libc::pthread_cond_t, sshfs_ref.lock_ptr);
     }
     libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
     if err == 0 {
