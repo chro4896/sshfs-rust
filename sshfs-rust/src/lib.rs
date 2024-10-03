@@ -338,7 +338,7 @@ struct DirHandle {
     conn: *mut Conn,
 }
 
-type RequestFunc = extern "C" fn(&mut Request);
+type RequestFunc = unsafe extern "C" fn(&mut Request);
 
 #[derive(Clone)]
 #[repr(C)]
@@ -366,6 +366,7 @@ pub struct SshfsIo {
 	error: core::ffi::c_int,
 }
 
+#[derive(Clone)]
 #[repr(C)]
 struct List_head {
     prev: *mut List_head,
@@ -633,8 +634,8 @@ extern "C" {
     fn cache_add_attr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, wrctr: u64);
     fn cache_invalidate(path: *const core::ffi::c_char);
     fn set_direct_io(fi: *mut fuse_file_info);
-    fn sshfs_sync_write_begin(req: *mut Request);
-    fn sshfs_sync_write_end(req: *mut Request);
+    fn sshfs_sync_write_begin(req: &mut Request);
+    fn sshfs_sync_write_end(req: &mut Request);
 }
 
 fn get_real_path(path: &[u8]) -> Vec<u8> {
