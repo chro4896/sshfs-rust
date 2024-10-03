@@ -1272,7 +1272,7 @@ unsafe fn sshfs_sync_read(
 
 #[no_mangle]
 pub unsafe extern "C" fn free_sf(sf: *mut SshfsFile) {
-    Box::from_raw(sf);
+    let _ = Box::from_raw(sf);
 }
 
 #[no_mangle]
@@ -1315,15 +1315,15 @@ pub unsafe extern "C" fn sshfs_open_common(
     let sf_malloc = libc::calloc(1, std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
     let mut sf = Box::new((*sf_malloc).clone());
     libc::free(sf_malloc as *mut core::ffi::c_void);
-    list_init(&mut ((*sf).write_reqs) as *mut List_head);
+    list_init(&mut (sf.write_reqs) as *mut List_head);
     libc::pthread_cond_init(
-        &mut ((*sf).write_finished) as *mut libc::pthread_cond_t,
+        &mut (sf.write_finished) as *mut libc::pthread_cond_t,
         std::ptr::null_mut(),
     );
-    (*sf).is_seq = 0;
-    (*sf).next_pos = 0;
+    sf.is_seq = 0;
+    sf.next_pos = 0;
     libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
-    (*sf).modifver = sshfs_ref.modifver as core::ffi::c_int;
+    sf.modifver = sshfs_ref.modifver as core::ffi::c_int;
     let ce = if sshfs_ref.max_conns > 1 {
         let mut ret = conn_table_lookup(path) as *mut ConntabEntry;
         if ret.is_null() {
@@ -1332,16 +1332,16 @@ pub unsafe extern "C" fn sshfs_open_common(
             (*ret).conn = get_conn(std::ptr::null_mut(), std::ptr::null_mut());
             conn_table_insert(path, ret as *mut core::ffi::c_void);
         }
-        (*sf).conn = (*ret).conn;
+        sf.conn = (*ret).conn;
         (*ret).refcount += 1;
-        (*((*sf).conn)).file_count += 1;
-        assert!((*((*sf).conn)).file_count > 0);
+        (*(sf.conn)).file_count += 1;
+        assert!((*(sf.conn)).file_count > 0);
         ret
     } else {
-        (*sf).conn = *(sshfs_ref.conns as *mut *mut Conn);
+        sf.conn = *(sshfs_ref.conns as *mut *mut Conn);
         std::ptr::null_mut()
     };
-    (*sf).connver = (*((*sf).conn)).connver;
+    sf.connver = (*(sf.conn)).connver;
     libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
     let mut openreq: *mut Request = std::ptr::null_mut();
     // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
@@ -1358,7 +1358,7 @@ pub unsafe extern "C" fn sshfs_open_common(
     let mut buf = unsafe { buf.translate_into_sys() };
     buf_to_iov(&mut buf as *mut Buffer_sys, iov);
     sftp_request_send(
-        (*sf).conn,
+        sf.conn,
         SSH_FXP_OPEN,
         iov,
         1,
@@ -1379,7 +1379,7 @@ pub unsafe extern "C" fn sshfs_open_common(
     // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
     let outbuf = libc::malloc(std::mem::size_of::<Buffer_sys>()) as *mut Buffer_sys;
     let mut err2 = sftp_request(
-        (*sf).conn,
+        sf.conn,
         ssh_type,
         &buf,
         SSH_FXP_ATTRS,
@@ -1394,19 +1394,19 @@ pub unsafe extern "C" fn sshfs_open_common(
         Some(Box::from_raw(openreq)),
         SSH_FXP_OPEN,
         SSH_FXP_HANDLE,
-        Some(&mut (*sf).handle),
+        Some(&mut sf.handle),
     );
     if err == 0 && err2 != 0 {
-        (*sf).handle.len = (*sf).handle.size;
-        sftp_request((*sf).conn, SSH_FXP_CLOSE, &(*sf).handle, 0, None);
-        libc::free((*sf).handle.p as *mut core::ffi::c_void);
+        sf.handle.len = sf.handle.size;
+        sftp_request(sf.conn, SSH_FXP_CLOSE, &sf.handle, 0, None);
+        libc::free(sf.handle.p as *mut core::ffi::c_void);
         err = err2;
     }
     if err == 0 {
         if sshfs_ref.dir_cache != 0 {
             cache_add_attr(path_org, stbuf, wrctr);
         }
-        (*sf).handle.len = (*sf).handle.size;
+        sf.handle.len = sf.handle.size;
         (*fi).fh = Box::into_raw(sf) as u64;
     } else {
         if sshfs_ref.dir_cache != 0 {
@@ -1414,7 +1414,7 @@ pub unsafe extern "C" fn sshfs_open_common(
         }
         if sshfs_ref.max_conns > 1 {
             libc::pthread_mutex_lock(sshfs_ref.lock_ptr);
-            (*((*sf).conn)).file_count -= 1;
+            (*(sf.conn)).file_count -= 1;
             (*ce).refcount -= 1;
             if (*ce).refcount == 0 {
                 conn_table_remove(path_org);
