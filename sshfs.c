@@ -2973,32 +2973,6 @@ int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-void sshfs_sync_write_begin(struct request *req)
-{
-	struct sshfs_io *sio = (struct sshfs_io *) req->data;
-	sio->num_reqs++;
-}
-
-void sshfs_sync_write_end(struct request *req)
-{
-	uint32_t serr;
-	struct sshfs_io *sio = (struct sshfs_io *) req->data;
-
-	if (req->error) {
-		sio->error = req->error;
-	} else if (req->replied) {
-		if (req->reply_type != SSH_FXP_STATUS) {
-			fprintf(stderr, "protocol error\n");
-		} else if (buf_get_uint32(&req->reply, &serr) != -1 &&
-			serr != SSH_FX_OK) {
-			sio->error = -EIO;
-		}
-	}
-	sio->num_reqs--;
-	if (!sio->num_reqs)
-		pthread_cond_broadcast(&sio->finished);
-}
-
 int sshfs_write(const char *path, const char *wbuf, size_t size,
                        off_t offset, struct fuse_file_info *fi);
 
