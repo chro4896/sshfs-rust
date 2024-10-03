@@ -485,8 +485,6 @@ extern "C" {
     ) -> core::ffi::c_int;
     fn sshfs_async_write(sf: *mut SshfsFile, buf: *mut core::ffi::c_char, size: usize,
                            offset: libc::off_t) -> core::ffi::c_int;
-    fn sshfs_sync_write_begin(req: *mut Request);
-    fn sshfs_sync_write_end(req: *mut Request);
 }
 
 fn get_real_path(path: *const core::ffi::c_char) -> Vec<u8> {
@@ -884,6 +882,33 @@ pub extern "C" fn sshfs_do_rename(
             None,
         )
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_sync_write_begin(req: &mut Request) {
+	let sio = req.data as *mut SshfsIo;
+	(*sio).num_reps += 1;
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_sync_write_end(req: *mut Request) {
+	let sio = req.data as *mut SshfsIo;
+	
+	if req.error != 0 {
+		(*sio).error = req.error;
+	} else if req.replied != 0 {
+		let mut serr: u32 = 0;
+		if req.reply_type != SSH_FXP_STATUS {
+			eprintln!("protocol error");
+		} else if buf_get_uint32(&mut req.reply as *mut Buffer_sys, &mut serr as *mut u32) != -1 && serr != SSH_FX_OK {
+			(*sio).error = -libc::EIO;
+		}
+	}
+	
+	(*sio).num_reps -= 1;
+	if (*sio).num_reps == 0 {
+		libc::pthread_cond_broadcast(&mut (*sio).finished as *mut libc::pthread_cond_t);
+	}
 }
 
 unsafe fn sshfs_sync_write(sf: *mut SshfsFile, mut wbuf: *mut core::ffi::c_char, mut size: usize,
