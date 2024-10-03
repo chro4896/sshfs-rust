@@ -1443,7 +1443,7 @@ unsafe fn sshfs_sync_write(sf: *mut SshfsFile, mut wbuf: *mut core::ffi::c_char,
         (*iov0).iov_len = buf.len;
         (*iov1).iov_base = wbuf as *mut core::ffi::c_void;
         (*iov1).iov_len = bsize;
-        err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov as *mut core::ffi::c_void, 2,
+        err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov, 2,
 					Some(sshfs_sync_write_begin),
 					Some(sshfs_sync_write_end),
 					0, sio as *mut core::ffi::c_void, std::ptr::null_mut());
