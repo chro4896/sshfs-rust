@@ -3,6 +3,7 @@ use rand::Rng;
 const SSH_FXP_OPEN: u8 = 3;
 const SSH_FXP_CLOSE: u8 = 4;
 const SSH_FXP_READ: u8 = 5;
+const SSH_FXP_WRITE: u8 = 6;
 const SSH_FXP_LSTAT: u8 = 7;
 const SSH_FXP_OPENDIR: u8 = 11;
 const SSH_FXP_READDIR: u8 = 12;
@@ -304,6 +305,15 @@ impl Buffer {
             (data & 255) as u8,
         ]);
     }
+    fn add_u64(&mut self, data: u64) {
+        self.add_u32((data>>32) as u32);
+        self.add_u32((data & 4294967295) as u32);
+    }
+    unsafe fn add_buf(&mut self, data: &mut Buffer_sys) {
+		for idx in 0..data.len {
+			self.p.push(*(data.p.offset(idx as isize)));
+		}
+    }
     fn add_str(&mut self, data: &[u8]) {
         self.add_u32(data.len() as u32);
         self.add(data);
@@ -349,6 +359,13 @@ pub struct Request {
 }
 
 #[derive(Clone)]
+#[repr(C)]
+pub struct SshfsIo {
+	num_reps: core::ffi::c_int,
+	finished: libc::pthread_cond_t,
+	error: core::ffi::c_int,
+}
+
 #[repr(C)]
 struct List_head {
     prev: *mut List_head,
@@ -593,12 +610,6 @@ extern "C" {
         size: usize,
         offset: libc::off_t,
     ) -> core::ffi::c_int;
-    fn sshfs_sync_write(
-        sf: *mut SshfsFile,
-        buf: *mut core::ffi::c_char,
-        size: usize,
-        offset: libc::off_t,
-    ) -> core::ffi::c_int;
     fn sshfs_async_write(
         sf: *mut SshfsFile,
         buf: *mut core::ffi::c_char,
@@ -622,6 +633,8 @@ extern "C" {
     fn cache_add_attr(path: *const core::ffi::c_char, stbuf: *mut libc::stat, wrctr: u64);
     fn cache_invalidate(path: *const core::ffi::c_char);
     fn set_direct_io(fi: *mut fuse_file_info);
+    fn sshfs_sync_write_begin(req: *mut Request);
+    fn sshfs_sync_write_end(req: *mut Request);
 }
 
 fn get_real_path(path: &[u8]) -> Vec<u8> {
@@ -1398,6 +1411,57 @@ pub unsafe extern "C" fn sshfs_read(
     } else {
         sshfs_async_read(sf, rbuf, size, offset)
     }
+}
+
+unsafe fn sshfs_sync_write(sf: *mut SshfsFile, mut wbuf: *mut core::ffi::c_char, mut size: usize,
+                           mut offset: libc::off_t) -> core::ffi::c_int {
+	let mut err = 0;
+	let sshfs_ref = retrieve_sshfs().unwrap();
+    let handle = &mut (*sf).handle;
+    // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+    let sio = libc::malloc(std::mem::size_of::<SshfsIo>()) as *mut SshfsIo;
+    (*sio).num_reps = 0;
+    (*sio).error = 0;
+    libc::pthread_cond_init(&mut (*sio).finished as *mut libc::pthread_cond_t, std::ptr::null());
+    while err == 0 && size > 0 {
+		let bsize = if size < sshfs_ref.max_write as usize {
+			size
+		} else {
+			sshfs_ref.max_write as usize
+		};
+        let mut buf = Buffer::new(0);
+        buf.add_buf(handle);
+	    buf.add_u64(offset as u64);
+	    buf.add_u32(bsize as u32);
+        let buf = unsafe { buf.translate_into_sys() };
+        // 本来はスタックに持つものだが、未初期化の変数が使用できないためmalloc で確保している
+        let iov = libc::malloc(std::mem::size_of::<libc::iovec>()*2) as *mut libc::iovec;
+        let iov0 = iov;
+        let iov1 = iov.offset(1);
+        (*iov0).iov_base = buf.p as *mut core::ffi::c_void;
+        (*iov0).iov_len = buf.len;
+        (*iov1).iov_base = wbuf as *mut core::ffi::c_void;
+        (*iov1).iov_len = bsize;
+        err = sftp_request_send((*sf).conn, SSH_FXP_WRITE, iov as *mut core::ffi::c_void, 2,
+					Some(sshfs_sync_write_begin),
+					Some(sshfs_sync_write_end),
+					0, sio as *mut core::ffi::c_void, std::ptr::null_mut());
+		size -= bsize;
+		wbuf = wbuf.offset(bsize as isize);
+		offset += bsize as i64;
+        libc::free(iov0 as *mut core::ffi::c_void);
+        libc::free(iov1 as *mut core::ffi::c_void);
+    }
+    libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+    while (*sio).num_reps != 0 {
+		libc::pthread_cond_wait(&mut (*sio).finished as *mut libc::pthread_cond_t, sshfs_ref.lock_ptr);
+    }
+    libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+    if err == 0 {
+		err = (*sio).error;
+    }
+    libc::free(sio as *mut core::ffi::c_void);
+    err
 }
 
 #[no_mangle]
