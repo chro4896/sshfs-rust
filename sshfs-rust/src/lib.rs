@@ -1293,7 +1293,9 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 		pflags |= SSH_FXF_APPEND;
 	}
 	
-	let sf = libc::calloc(1, std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
+	let sf_malloc = libc::calloc(1, std::mem::size_of::<SshfsFile>()) as *mut SshfsFile;
+	let sf = Box::new((*sf_malloc).clone());
+    libc::free(sf_malloc as *mut core::ffi::c_void);
 	list_init(&mut ((*sf).write_reqs) as *mut List_head);
 	libc::pthread_cond_init(&mut ((*sf).write_finished) as *mut libc::pthread_cond_t, std::ptr::null_mut());
 	(*sf).is_seq = 0;
@@ -1362,7 +1364,6 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 			cache_add_attr(path_org, stbuf, wrctr);
 		}
 		(*sf).handle.len = (*sf).handle.size;
-		let sf = Box::new((*sf).clone());
 		(*fi).fh = Box::into_raw(sf) as u64;
 	} else {
 		if sshfs_ref.dir_cache != 0 {
@@ -1379,7 +1380,6 @@ pub unsafe extern "C" fn sshfs_open_common(path: *const core::ffi::c_char, mode:
 			libc::pthread_mutex_unlock(sshfs_ref.lock_ptr);
 		}
 	}
-    libc::free(sf as *mut core::ffi::c_void);
 	libc::free(stbuf as *mut core::ffi::c_void);
 	libc::free(iov as *mut core::ffi::c_void);
 	err
