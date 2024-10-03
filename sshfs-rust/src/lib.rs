@@ -452,7 +452,7 @@ pub unsafe extern "C" fn conn_table_lookup(
 }
 
 #[no_mangle]
-pub extern "C" fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::c_void {
+fn conn_table_lookup_slice(key: &[u8]) -> *mut core::ffi::c_void {
     let key_org = key;
     let mut key = Vec::new();
     for c in key_org.iter() {
@@ -480,7 +480,7 @@ pub unsafe extern "C" fn conn_table_remove(key: *const core::ffi::c_char) {
 }
 
 #[no_mangle]
-pub extern "C" fn conn_table_remove_slice(key: &[u8]) {
+fn conn_table_remove_slice(key: &[u8]) {
     let key_org = key;
     let mut key = Vec::new();
     for c in key_org.iter() {
@@ -508,7 +508,7 @@ pub unsafe extern "C" fn conn_table_insert(
 }
 
 #[no_mangle]
-pub extern "C" fn conn_table_insert_slice(key: &[u8], val: *mut core::ffi::c_void) {
+fn conn_table_insert_slice(key: &[u8], val: *mut core::ffi::c_void) {
     let key_org = key;
     let mut key = Vec::new();
     for c in key_org.iter() {
@@ -1354,7 +1354,7 @@ pub unsafe extern "C" fn sshfs_open_common(
     buf.add_str(&path);
     buf.add_u32(pflags);
     buf.add_u32(SSH_FILEXFER_ATTR_PERMISSIONS);
-    buf.add_u32(mode as u32);
+    buf.add_u32(mode);
     let mut buf = unsafe { buf.translate_into_sys() };
     buf_to_iov(&mut buf as *mut Buffer_sys, iov);
     sftp_request_send(
