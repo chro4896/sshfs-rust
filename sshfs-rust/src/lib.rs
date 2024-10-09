@@ -1419,7 +1419,7 @@ pub unsafe extern "C" fn sshfs_sync_write_begin(req: &mut Request) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sshfs_sync_write_end(req: *mut Request) {
+pub unsafe extern "C" fn sshfs_sync_write_end(req: &mut Request) {
 	let sio = req.data as *mut SshfsIo;
 	
 	if req.error != 0 {
