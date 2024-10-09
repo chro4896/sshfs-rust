@@ -618,7 +618,7 @@ extern "C" {
         dbuf: *mut core::ffi::c_void,
         filler: *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
-    fn list_empty(head: *const List_head);
+    fn list_empty(head: *const List_head) -> core::ffi::c_int;
     fn list_del(entry: *mut List_head);
     fn list_add(new: *mut List_head, head: *mut List_head);
     fn sshfs_send_read(
@@ -1456,8 +1456,8 @@ pub unsafe extern "C" fn sshfs_flush(
 				prev: std::ptr::null_mut() as *mut List_head,
 				next: std::ptr::null_mut() as *mut List_head,
 			};
-			list_add(&mut write_reqs as *mut List_head, curr_list);
-			while list_empty(&write_reqs as *const List_head) == 0 {
+			list_add(&mut write_reps as *mut List_head, curr_list);
+			while list_empty(&write_reps as *const List_head) == 0 {
 				libc::pthread_cond_wait(&mut ((*sf).write_finished) as *mut libc::pthread_cond_t, retrieve_sshfs().unwrap().lock_ptr);
 			}
 		}
