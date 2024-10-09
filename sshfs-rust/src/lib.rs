@@ -1438,10 +1438,34 @@ pub unsafe extern "C" fn sshfs_open(
 
 #[no_mangle]
 pub unsafe extern "C" fn sshfs_flush(
-    path: *const core::ffi::c_char,
+    _path: *const core::ffi::c_char,
     fi: *mut fuse_file_info,
 ) -> core::ffi::c_int {
-	0
+    let sf = get_sshfs_file(fi);
+    if sshfs_file_is_conn(sf) == 0 {
+        -libc::EIO
+    } else if retrieve_sshfs().unwrap().sync_write != 0 {
+        0
+    } else {
+        libc::pthread_mutex_lock(retrieve_sshfs().unwrap().lock_ptr);
+        if list_empty(&((*sf).write_reqs) as *const List_head) == 0 {
+			let curr_list = (*sf).write_reqs.prev;
+			list_del(&mut ((*sf).write_reqs) as *mut List_head);
+			list_init(&mut ((*sf).write_reqs) as *mut List_head);
+			let mut write_reps = List_head {
+				prev: std::ptr::null_mut() as *mut List_head,
+				next: std::ptr::null_mut() as *mut List_head,
+			};
+			list_add(&mut write_reqs as *mut List_head, curr_list);
+			while list_empty(&write_reqs as *const List_head) == 0 {
+				libc::pthread_cond_wait(&mut ((*sf).write_finished) as *mut libc::pthread_cond_t, retrieve_sshfs().unwrap().lock_ptr);
+			}
+		}
+        let err = (*sf).write_error;
+        (*sf).write_error = 0;
+        libc::pthread_mutex_unlock(retrieve_sshfs().unwrap().lock_ptr);
+        err
+    }
 }
 
 #[no_mangle]
