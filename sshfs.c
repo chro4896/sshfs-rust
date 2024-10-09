@@ -617,7 +617,7 @@ void list_init(struct list_head *head)
 	head->prev = head;
 }
 
-static void list_add(struct list_head *new, struct list_head *head)
+void list_add(struct list_head *new, struct list_head *head)
 {
 	struct list_head *prev = head;
 	struct list_head *next = head->next;
@@ -627,7 +627,7 @@ static void list_add(struct list_head *new, struct list_head *head)
 	prev->next = new;
 }
 
-static void list_del(struct list_head *entry)
+void list_del(struct list_head *entry)
 {
 	struct list_head *prev = entry->prev;
 	struct list_head *next = entry->next;
@@ -636,7 +636,7 @@ static void list_del(struct list_head *entry)
 
 }
 
-static int list_empty(const struct list_head *head)
+int list_empty(const struct list_head *head)
 {
 	return head->next == head;
 }
@@ -2334,34 +2334,7 @@ int sshfs_open_common(const char *path, mode_t mode,
 
 int sshfs_open(const char *path, struct fuse_file_info *fi);
 
-static int sshfs_flush(const char *path, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-	struct list_head write_reqs;
-	struct list_head *curr_list;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	if (sshfs.sync_write)
-		return 0;
-
-	(void) path;
-	pthread_mutex_lock(&sshfs.lock);
-	if (!list_empty(&sf->write_reqs)) {
-		curr_list = sf->write_reqs.prev;
-		list_del(&sf->write_reqs);
-		list_init(&sf->write_reqs);
-		list_add(&write_reqs, curr_list);
-		while (!list_empty(&write_reqs))
-			pthread_cond_wait(&sf->write_finished, &sshfs.lock);
-	}
-	err = sf->write_error;
-	sf->write_error = 0;
-	pthread_mutex_unlock(&sshfs.lock);
-	return err;
-}
+int sshfs_flush(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_fsync(const char *path, int isdatasync,
                        struct fuse_file_info *fi)
@@ -2386,6 +2359,8 @@ static int sshfs_fsync(const char *path, int isdatasync,
 	return err;
 }
 
+void free_sf(struct sshfs_file *sf);
+
 static int sshfs_release(const char *path, struct fuse_file_info *fi)
 {
 	struct sshfs_file *sf = get_sshfs_file(fi);
@@ -2408,7 +2383,7 @@ static int sshfs_release(const char *path, struct fuse_file_info *fi)
 		}
 		pthread_mutex_unlock(&sshfs.lock);
 	}
-	free(sf);
+	free_sf(sf);
 	return 0;
 }
 
