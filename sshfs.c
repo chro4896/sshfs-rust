@@ -617,7 +617,7 @@ void list_init(struct list_head *head)
 	head->prev = head;
 }
 
-static void list_add(struct list_head *new, struct list_head *head)
+void list_add(struct list_head *new, struct list_head *head)
 {
 	struct list_head *prev = head;
 	struct list_head *next = head->next;
@@ -627,7 +627,7 @@ static void list_add(struct list_head *new, struct list_head *head)
 	prev->next = new;
 }
 
-static void list_del(struct list_head *entry)
+void list_del(struct list_head *entry)
 {
 	struct list_head *prev = entry->prev;
 	struct list_head *next = entry->next;
@@ -636,7 +636,7 @@ static void list_del(struct list_head *entry)
 
 }
 
-static int list_empty(const struct list_head *head)
+int list_empty(const struct list_head *head)
 {
 	return head->next == head;
 }
@@ -2334,34 +2334,7 @@ int sshfs_open_common(const char *path, mode_t mode,
 
 int sshfs_open(const char *path, struct fuse_file_info *fi);
 
-static int sshfs_flush(const char *path, struct fuse_file_info *fi)
-{
-	int err;
-	struct sshfs_file *sf = get_sshfs_file(fi);
-	struct list_head write_reqs;
-	struct list_head *curr_list;
-
-	if (!sshfs_file_is_conn(sf))
-		return -EIO;
-
-	if (sshfs.sync_write)
-		return 0;
-
-	(void) path;
-	pthread_mutex_lock(&sshfs.lock);
-	if (!list_empty(&sf->write_reqs)) {
-		curr_list = sf->write_reqs.prev;
-		list_del(&sf->write_reqs);
-		list_init(&sf->write_reqs);
-		list_add(&write_reqs, curr_list);
-		while (!list_empty(&write_reqs))
-			pthread_cond_wait(&sf->write_finished, &sshfs.lock);
-	}
-	err = sf->write_error;
-	sf->write_error = 0;
-	pthread_mutex_unlock(&sshfs.lock);
-	return err;
-}
+int sshfs_flush(const char *path, struct fuse_file_info *fi);
 
 static int sshfs_fsync(const char *path, int isdatasync,
                        struct fuse_file_info *fi)
@@ -2386,6 +2359,8 @@ static int sshfs_fsync(const char *path, int isdatasync,
 	return err;
 }
 
+void free_sf(struct sshfs_file *sf);
+
 static int sshfs_release(const char *path, struct fuse_file_info *fi)
 {
 	struct sshfs_file *sf = get_sshfs_file(fi);
@@ -2408,7 +2383,7 @@ static int sshfs_release(const char *path, struct fuse_file_info *fi)
 		}
 		pthread_mutex_unlock(&sshfs.lock);
 	}
-	free(sf);
+	free_sf(sf);
 	return 0;
 }
 
@@ -2693,13 +2668,13 @@ int sshfs_async_write(struct sshfs_file *sf, const char *wbuf,
 	return err;
 }
 
-static void sshfs_sync_write_begin(struct request *req)
+void sshfs_sync_write_begin(struct request *req)
 {
 	struct sshfs_io *sio = (struct sshfs_io *) req->data;
 	sio->num_reqs++;
 }
 
-static void sshfs_sync_write_end(struct request *req)
+void sshfs_sync_write_end(struct request *req)
 {
 	uint32_t serr;
 	struct sshfs_io *sio = (struct sshfs_io *) req->data;
@@ -2717,49 +2692,6 @@ static void sshfs_sync_write_end(struct request *req)
 	sio->num_reqs--;
 	if (!sio->num_reqs)
 		pthread_cond_broadcast(&sio->finished);
-}
-
-
-int sshfs_sync_write(struct sshfs_file *sf, const char *wbuf,
-			    size_t size, off_t offset)
-{
-	int err = 0;
-	struct buffer *handle = &sf->handle;
-	struct sshfs_io sio = { .error = 0, .num_reqs = 0 };
-
-	pthread_cond_init(&sio.finished, NULL);
-
-	while (!err && size) {
-		struct buffer buf;
-		struct iovec iov[2];
-		size_t bsize = size < sshfs.max_write ? size : sshfs.max_write;
-
-		buf_init(&buf, 0);
-		buf_add_buf(&buf, handle);
-		buf_add_uint64(&buf, offset);
-		buf_add_uint32(&buf, bsize);
-		buf_to_iov(&buf, &iov[0]);
-		iov[1].iov_base = (void *) wbuf;
-		iov[1].iov_len = bsize;
-		err = sftp_request_send(sf->conn, SSH_FXP_WRITE, iov, 2,
-					sshfs_sync_write_begin,
-					sshfs_sync_write_end,
-					0, &sio, NULL);
-		buf_free(&buf);
-		size -= bsize;
-		wbuf += bsize;
-		offset += bsize;
-	}
-
-	pthread_mutex_lock(&sshfs.lock);
-	while (sio.num_reqs)
-	       pthread_cond_wait(&sio.finished, &sshfs.lock);
-	pthread_mutex_unlock(&sshfs.lock);
-
-	if (!err)
-		err = sio.error;
-
-	return err;
 }
 
 int sshfs_write(const char *path, const char *wbuf, size_t size,
