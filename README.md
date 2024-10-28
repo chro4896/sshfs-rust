@@ -22,6 +22,7 @@ FUSE とRust を習熟することを目的に、SSHFS をRust で実装する�
 - sshfs_flush
 - sshfs_read（部分的）
 - sshfs_write（部分的）
+- sshfs_create
 
 これ以下は、オリジナルのSSHFS のREADME である。
 
