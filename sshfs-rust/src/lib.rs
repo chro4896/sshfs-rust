@@ -1575,3 +1575,17 @@ pub unsafe extern "C" fn sshfs_write(
         }
     }
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn sshfs_create(
+    path: *const core::ffi::c_char,
+    mode: libc::mode_t,
+    fi: *mut fuse_file_info,
+) -> core::ffi::c_int {
+	let mode = if retrieve_sshfs().unwrap().createmode_workaround != 0 {
+		0
+	} else {
+		mode
+	};
+    sshfs_open_common(path, mode, fi)
+}

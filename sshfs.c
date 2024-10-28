@@ -2735,14 +2735,8 @@ static int sshfs_statfs(const char *path, struct statvfs *buf)
 	return 0;
 }
 
-static int sshfs_create(const char *path, mode_t mode,
-                        struct fuse_file_info *fi)
-{
-	if (sshfs.createmode_workaround)
-		mode = 0;
-
-	return sshfs_open_common(path, mode, fi);
-}
+int sshfs_create(const char *path, mode_t mode,
+                        struct fuse_file_info *fi);
 
 static int sshfs_truncate(const char *path, off_t size,
 			  struct fuse_file_info *fi)
